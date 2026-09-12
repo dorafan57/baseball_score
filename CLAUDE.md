@@ -2,7 +2,9 @@
 
 - Platform: Flutter Web (Mobile-friendly responsive UI)
 - State Management: flutter_riverpod
-- Styling: Material 3, optimized for smartphone screens (max-width: 480px on desktop)
+- Styling: Material 3, optimized for smartphone screens
+  (max-width: 480px on narrow screens, up to 900px on desktop-sized screens
+  — see `kWideScreenBreakpoint` / `kAppMaxWidthWide` in `lib/app.dart`)
 - Storage: Web local persistence (shared_preferences)
 
 # Language
