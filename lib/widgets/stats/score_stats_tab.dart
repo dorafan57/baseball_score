@@ -121,9 +121,7 @@ class ScoreStatsTab extends StatelessWidget {
                     ],
                   ),
                   TableRow(
-                    decoration: BoxDecoration(
-                      color: isTop ? Colors.green.shade50 : Colors.white,
-                    ),
+                    decoration: const BoxDecoration(color: Colors.white),
                     children: [
                       StatsDataCell(teamNameTop, isBold: true),
                       ...List.generate(displayInnings, (i) {
@@ -160,9 +158,7 @@ class ScoreStatsTab extends StatelessWidget {
                     ],
                   ),
                   TableRow(
-                    decoration: BoxDecoration(
-                      color: !isTop ? Colors.green.shade50 : Colors.white,
-                    ),
+                    decoration: const BoxDecoration(color: Colors.white),
                     children: [
                       StatsDataCell(teamNameBottom, isBold: true),
                       ...List.generate(displayInnings, (i) {
@@ -273,7 +269,7 @@ class ScoreStatsTab extends StatelessWidget {
                       StatsHeaderCell('３塁'),
                       StatsHeaderCell('本塁', isAccent: true),
                       StatsHeaderCell('打点', isAccent: true),
-                      StatsHeaderCell('得点'),
+                      StatsHeaderCell('得点', isAccent: true),
                       StatsHeaderCell('盗塁', isAccent: true),
                       StatsHeaderCell('四球'),
                       StatsHeaderCell('死球'),
@@ -356,7 +352,7 @@ class ScoreStatsTab extends StatelessWidget {
                           '${b.stats.hr}',
                           isBold: b.stats.hr > 0,
                           textColor: b.stats.hr > 0
-                              ? Colors.purple.shade800
+                              ? Colors.blue.shade900
                               : null,
                         ),
                         StatsDataCell(
@@ -366,11 +362,19 @@ class ScoreStatsTab extends StatelessWidget {
                               ? Colors.red.shade800
                               : null,
                         ),
-                        StatsDataCell('${b.stats.runsScored}'),
+                        StatsDataCell(
+                          '${b.stats.runsScored}',
+                          isBold: b.stats.runsScored > 0,
+                          textColor: b.stats.runsScored > 0
+                              ? Colors.red.shade800
+                              : null,
+                        ),
                         StatsDataCell(
                           '${b.stats.sb}',
                           isBold: b.stats.sb > 0,
-                          textColor: Colors.teal.shade800,
+                          textColor: b.stats.sb > 0
+                              ? Colors.teal.shade800
+                              : null,
                         ),
                         StatsDataCell('${b.stats.bb}'),
                         StatsDataCell('${b.stats.hbp}'),
@@ -436,6 +440,7 @@ class ScoreStatsTab extends StatelessWidget {
                       StatsDataCell(
                         '${activeBatters.fold(0, (s, b) => s + b.stats.hr)}',
                         isBold: true,
+                        textColor: Colors.blue.shade900,
                       ),
                       StatsDataCell(
                         '${activeBatters.fold(0, (s, b) => s + b.stats.rbi)}',
@@ -445,6 +450,7 @@ class ScoreStatsTab extends StatelessWidget {
                       StatsDataCell(
                         '${activeBatters.fold(0, (s, b) => s + b.stats.runsScored)}',
                         isBold: true,
+                        textColor: Colors.red.shade800,
                       ),
                       StatsDataCell(
                         '${activeBatters.fold(0, (s, b) => s + b.stats.sb)}',
@@ -539,7 +545,7 @@ class ScoreStatsTab extends StatelessWidget {
                       StatsHeaderCell('打者'),
                       StatsHeaderCell('安打'),
                       StatsHeaderCell('本塁'),
-                      StatsHeaderCell('三振', isAccent: true),
+                      StatsHeaderCell('三振'),
                       StatsHeaderCell('四球'),
                       StatsHeaderCell('死球'),
                       StatsHeaderCell('失点'),
@@ -569,11 +575,7 @@ class ScoreStatsTab extends StatelessWidget {
                             StatsDataCell('${pStats.battersFaced}'),
                             StatsDataCell('${pStats.hitsAllowed}'),
                             StatsDataCell('${pStats.hrAllowed}'),
-                            StatsDataCell(
-                              '${pStats.strikeouts}',
-                              isBold: true,
-                              textColor: Colors.green.shade900,
-                            ),
+                            StatsDataCell('${pStats.strikeouts}'),
                             StatsDataCell('${pStats.walks}'),
                             StatsDataCell('${pStats.hitByPitch}'),
                             StatsDataCell('${pStats.runsAllowed}'),
@@ -648,10 +650,10 @@ class ScoreStatsTab extends StatelessWidget {
                         const Spacer(),
                         Text(
                           '打率 ${b.stats.battingAverage}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            color: Colors.green,
+                            color: Colors.green.shade900,
                           ),
                         ),
                         IconButton(
@@ -683,21 +685,45 @@ class ScoreStatsTab extends StatelessWidget {
                           children: [
                             StatItem('打席', '${b.stats.pa}'),
                             StatItem('打数', '${b.stats.ab}'),
-                            StatItem('安打', '${b.stats.hits}', isBold: true),
+                            StatItem(
+                              '安打',
+                              '${b.stats.hits}',
+                              isBold: true,
+                              textColor: Colors.blue.shade900,
+                            ),
                             StatItem('2塁打', '${b.stats.doubles}'),
                             StatItem('3塁打', '${b.stats.triples}'),
-                            StatItem('本塁打', '${b.stats.hr}', isBold: true),
+                            StatItem(
+                              '本塁打',
+                              '${b.stats.hr}',
+                              isBold: b.stats.hr > 0,
+                              textColor: b.stats.hr > 0
+                                  ? Colors.blue.shade900
+                                  : null,
+                            ),
                             StatItem(
                               '打点',
                               '${b.stats.rbi}',
-                              textColor: Colors.red.shade800,
+                              isBold: b.stats.rbi > 0,
+                              textColor: b.stats.rbi > 0
+                                  ? Colors.red.shade800
+                                  : null,
                             ),
-                            StatItem('得点', '${b.stats.runsScored}'),
+                            StatItem(
+                              '得点',
+                              '${b.stats.runsScored}',
+                              isBold: b.stats.runsScored > 0,
+                              textColor: b.stats.runsScored > 0
+                                  ? Colors.red.shade800
+                                  : null,
+                            ),
                             StatItem(
                               '盗塁',
                               '${b.stats.sb}',
                               isBold: b.stats.sb > 0,
-                              textColor: Colors.teal.shade800,
+                              textColor: b.stats.sb > 0
+                                  ? Colors.teal.shade800
+                                  : null,
                             ),
                             StatItem('四球', '${b.stats.bb}'),
                             StatItem('死球', '${b.stats.hbp}'),
@@ -708,8 +734,9 @@ class ScoreStatsTab extends StatelessWidget {
                             StatItem(
                               '守備エラー',
                               '${b.stats.errorsCommitted}',
+                              isBold: b.stats.errorsCommitted > 0,
                               textColor: b.stats.errorsCommitted > 0
-                                  ? Colors.red
+                                  ? Colors.red.shade800
                                   : null,
                             ),
                           ],
