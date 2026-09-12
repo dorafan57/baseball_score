@@ -125,7 +125,7 @@ class CategorizedActionButtons extends StatelessWidget {
             Expanded(
               child: ActionButton(
                 '本塁打 (HR)',
-                Colors.green.shade50,
+                Colors.white,
                 () => _record(context, AtBatResult.homeRun),
               ),
             ),
@@ -243,7 +243,7 @@ class CategorizedActionButtons extends StatelessWidget {
             Expanded(
               child: ActionButton(
                 '併殺 (DP)',
-                Colors.red.shade50,
+                Colors.white,
                 () => _record(context, AtBatResult.doublePlay),
               ),
             ),
