@@ -497,24 +497,6 @@ class InputTab extends StatelessWidget {
                           OutLamp(targetOut: 2, outs: outs),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          notifier.forceChangeInning();
-                        },
-                        icon: const Icon(Icons.swap_horiz, size: 14),
-                        label: const Text(
-                          'チェンジ',
-                          style: TextStyle(fontSize: 11),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 0,
-                          ),
-                          minimumSize: const Size(50, 24),
-                        ),
-                      ),
                     ],
                   ),
                   Container(

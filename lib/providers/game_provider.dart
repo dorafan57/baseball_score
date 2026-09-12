@@ -287,14 +287,14 @@ class GameNotifier extends Notifier<GameSessionState> {
       ? s.copyWith(cycleIndexTop: val)
       : s.copyWith(cycleIndexBottom: val);
 
+  // 攻守交代では batterIndexTop/Bottom・cycleIndexTop/Bottom をリセットしない。
+  // これらはチームごとの打順位置であり、そのチームの前回の攻撃（1イニング前）の
+  // 続きの打者から再開する必要があるため。
   GameSessionState _changeInning(GameSessionState s) {
-    var next = s.copyWith(
+    return s.copyWith(
       isTop: !s.isTop,
       inning: !s.isTop ? s.inning + 1 : s.inning,
     );
-    next = _withCurrentCycle(next, 0);
-    next = _withCurrentBatterIndex(next, 0);
-    return next;
   }
 
   /// 現在の半イニングが3アウトに達していれば攻守交代する。
@@ -636,11 +636,6 @@ class GameNotifier extends Notifier<GameSessionState> {
       playersBottom: s.playersBottom,
       gameEvents: s.gameEvents,
     );
-  }
-
-  /// 3アウトを待たずに強制的に攻守交代する。
-  void forceChangeInning() {
-    state = _recomputeReplay(_changeInning(state));
   }
 
   void changePitcher(String playerId) {
