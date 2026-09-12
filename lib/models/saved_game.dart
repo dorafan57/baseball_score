@@ -13,6 +13,9 @@ import 'player.dart';
 class SavedGame {
   final String gameId;
   final DateTime savedAt;
+
+  /// 試合が実際に行われた日付（保存日時とは別）。
+  final DateTime gameDate;
   final String teamNameTop;
   final String teamNameBottom;
   final int totalInningsConfig;
@@ -32,6 +35,7 @@ class SavedGame {
   const SavedGame({
     required this.gameId,
     required this.savedAt,
+    required this.gameDate,
     required this.teamNameTop,
     required this.teamNameBottom,
     required this.totalInningsConfig,
@@ -58,6 +62,7 @@ class SavedGame {
   Map<String, dynamic> toJson() => {
     'gameId': gameId,
     'savedAt': savedAt.toIso8601String(),
+    'gameDate': gameDate.toIso8601String(),
     'teamNameTop': teamNameTop,
     'teamNameBottom': teamNameBottom,
     'totalInningsConfig': totalInningsConfig,
@@ -78,6 +83,11 @@ class SavedGame {
   factory SavedGame.fromJson(Map<String, dynamic> json) => SavedGame(
     gameId: json['gameId'] as String,
     savedAt: DateTime.parse(json['savedAt'] as String),
+    // 開催日フィールド追加前に保存された試合には存在しないため、
+    // その場合は保存日時の日付を代わりに使う。
+    gameDate: json['gameDate'] != null
+        ? DateTime.parse(json['gameDate'] as String)
+        : DateTime.parse(json['savedAt'] as String),
     teamNameTop: json['teamNameTop'] as String,
     teamNameBottom: json['teamNameBottom'] as String,
     totalInningsConfig: json['totalInningsConfig'] as int,

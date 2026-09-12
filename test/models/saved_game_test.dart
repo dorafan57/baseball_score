@@ -113,6 +113,7 @@ void main() {
       final saved = SavedGame(
         gameId: 'game-1',
         savedAt: DateTime.utc(2026, 9, 13, 10, 30),
+        gameDate: DateTime.utc(2026, 9, 12),
         teamNameTop: '自チーム',
         teamNameBottom: '相手チーム',
         totalInningsConfig: 7,
@@ -134,6 +135,7 @@ void main() {
 
       expect(restored.gameId, saved.gameId);
       expect(restored.savedAt, saved.savedAt);
+      expect(restored.gameDate, saved.gameDate);
       expect(restored.teamNameTop, saved.teamNameTop);
       expect(restored.teamNameBottom, saved.teamNameBottom);
       expect(restored.nextEventId, saved.nextEventId);
@@ -143,6 +145,32 @@ void main() {
 
       final replay = restored.replay();
       expect(replay.statsOf('t1').hits, 1);
+    });
+
+    test('gameDate フィールドが無い旧データは savedAt を代わりに使う', () {
+      final json = {
+        'gameId': 'game-1',
+        'savedAt': DateTime.utc(2026, 9, 13, 10, 30).toIso8601String(),
+        'teamNameTop': '自チーム',
+        'teamNameBottom': '相手チーム',
+        'totalInningsConfig': 7,
+        'inning': 1,
+        'isTop': true,
+        'batterIndexTop': 0,
+        'batterIndexBottom': 0,
+        'cycleIndexTop': 0,
+        'cycleIndexBottom': 0,
+        'currentPitcherIdTop': 't1',
+        'currentPitcherIdBottom': 'b1',
+        'nextEventId': 1,
+        'playersTop': <Map<String, dynamic>>[],
+        'playersBottom': <Map<String, dynamic>>[],
+        'gameEvents': <Map<String, dynamic>>[],
+      };
+
+      final restored = SavedGame.fromJson(json);
+
+      expect(restored.gameDate, DateTime.utc(2026, 9, 13, 10, 30));
     });
   });
 }

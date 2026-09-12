@@ -32,12 +32,26 @@ class _SettingsDialog extends ConsumerStatefulWidget {
 class _SettingsDialogState extends ConsumerState<_SettingsDialog> {
   late final TextEditingController _topCtrl;
   late final TextEditingController _btmCtrl;
+  late DateTime _gameDate;
 
   @override
   void initState() {
     super.initState();
     _topCtrl = TextEditingController(text: widget.session.teamNameTop);
     _btmCtrl = TextEditingController(text: widget.session.teamNameBottom);
+    _gameDate = widget.session.gameDate;
+  }
+
+  Future<void> _pickGameDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _gameDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() => _gameDate = picked);
+    }
   }
 
   @override
@@ -67,6 +81,17 @@ class _SettingsDialogState extends ConsumerState<_SettingsDialog> {
               controller: _btmCtrl,
               enabled: widget.session.canEdit,
               decoration: const InputDecoration(labelText: '後攻チーム名'),
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('開催日'),
+              subtitle: Text(
+                '${_gameDate.year}/${_gameDate.month.toString().padLeft(2, '0')}/'
+                '${_gameDate.day.toString().padLeft(2, '0')}',
+              ),
+              trailing: const Icon(Icons.calendar_today),
+              onTap: widget.session.canEdit ? _pickGameDate : null,
             ),
             const Divider(height: 24),
             const Text(
@@ -140,6 +165,7 @@ class _SettingsDialogState extends ConsumerState<_SettingsDialog> {
                 top: _topCtrl.text.isEmpty ? '先攻チーム' : _topCtrl.text,
                 bottom: _btmCtrl.text.isEmpty ? '後攻チーム' : _btmCtrl.text,
               );
+              widget.notifier.updateGameDate(_gameDate);
               Navigator.pop(context);
             },
             child: const Text('保存'),

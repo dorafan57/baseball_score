@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 typedef NewGameInput = ({
   String teamNameTop,
   String teamNameBottom,
+  DateTime gameDate,
   String editKey,
 });
 
@@ -31,6 +32,7 @@ class _NewGameDialogState extends State<_NewGameDialog> {
   late final TextEditingController _keyCtrl;
   bool _obscureKey = true;
   String? _keyError;
+  late DateTime _gameDate;
 
   @override
   void initState() {
@@ -38,6 +40,20 @@ class _NewGameDialogState extends State<_NewGameDialog> {
     _topCtrl = TextEditingController(text: '自チーム (先)');
     _btmCtrl = TextEditingController(text: '対戦相手 (後)');
     _keyCtrl = TextEditingController();
+    final now = DateTime.now();
+    _gameDate = DateTime(now.year, now.month, now.day);
+  }
+
+  Future<void> _pickGameDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _gameDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() => _gameDate = picked);
+    }
   }
 
   @override
@@ -58,6 +74,7 @@ class _NewGameDialogState extends State<_NewGameDialog> {
     Navigator.pop(context, (
       teamNameTop: _topCtrl.text.isEmpty ? '先攻チーム' : _topCtrl.text,
       teamNameBottom: _btmCtrl.text.isEmpty ? '後攻チーム' : _btmCtrl.text,
+      gameDate: _gameDate,
       editKey: _keyCtrl.text,
     ));
   }
@@ -78,6 +95,17 @@ class _NewGameDialogState extends State<_NewGameDialog> {
           TextField(
             controller: _btmCtrl,
             decoration: const InputDecoration(labelText: '後攻チーム名'),
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('開催日'),
+            subtitle: Text(
+              '${_gameDate.year}/${_gameDate.month.toString().padLeft(2, '0')}/'
+              '${_gameDate.day.toString().padLeft(2, '0')}',
+            ),
+            trailing: const Icon(Icons.calendar_today),
+            onTap: _pickGameDate,
           ),
           const Divider(height: 24),
           TextField(

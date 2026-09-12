@@ -28,6 +28,9 @@ class GameSessionState {
   /// 途中のイベントを削除してもIDが重複しないよう、単調増加のカウンタで管理する。
   final int nextEventId;
 
+  /// 試合が実際に行われた日付（保存日時とは別）。
+  final DateTime gameDate;
+
   final String teamNameTop;
   final String teamNameBottom;
   final int totalInningsConfig;
@@ -64,6 +67,7 @@ class GameSessionState {
   const GameSessionState({
     required this.gameEvents,
     required this.nextEventId,
+    required this.gameDate,
     required this.teamNameTop,
     required this.teamNameBottom,
     required this.totalInningsConfig,
@@ -93,9 +97,11 @@ class GameSessionState {
     ];
     const totalInningsConfig = 7;
     const inning = 1;
+    final now = DateTime.now();
     return GameSessionState(
       gameEvents: const [],
       nextEventId: 1,
+      gameDate: DateTime(now.year, now.month, now.day),
       teamNameTop: '自チーム (先)',
       teamNameBottom: '対戦相手 (後)',
       totalInningsConfig: totalInningsConfig,
@@ -116,6 +122,7 @@ class GameSessionState {
   GameSessionState copyWith({
     List<GameEvent>? gameEvents,
     int? nextEventId,
+    DateTime? gameDate,
     String? teamNameTop,
     String? teamNameBottom,
     int? totalInningsConfig,
@@ -136,6 +143,7 @@ class GameSessionState {
     return GameSessionState(
       gameEvents: gameEvents ?? this.gameEvents,
       nextEventId: nextEventId ?? this.nextEventId,
+      gameDate: gameDate ?? this.gameDate,
       teamNameTop: teamNameTop ?? this.teamNameTop,
       teamNameBottom: teamNameBottom ?? this.teamNameBottom,
       totalInningsConfig: totalInningsConfig ?? this.totalInningsConfig,
@@ -700,6 +708,7 @@ class GameNotifier extends Notifier<GameSessionState> {
     final placeholder = GameSessionState(
       gameEvents: saved.gameEvents,
       nextEventId: saved.nextEventId,
+      gameDate: saved.gameDate,
       teamNameTop: saved.teamNameTop,
       teamNameBottom: saved.teamNameBottom,
       totalInningsConfig: saved.totalInningsConfig,
@@ -732,6 +741,7 @@ class GameNotifier extends Notifier<GameSessionState> {
     return SavedGame(
       gameId: gameId,
       savedAt: savedAt ?? DateTime.now(),
+      gameDate: s.gameDate,
       teamNameTop: s.teamNameTop,
       teamNameBottom: s.teamNameBottom,
       totalInningsConfig: s.totalInningsConfig,
@@ -769,6 +779,10 @@ class GameNotifier extends Notifier<GameSessionState> {
     _commitLocalAndSync(
       state.copyWith(teamNameTop: top, teamNameBottom: bottom),
     );
+  }
+
+  void updateGameDate(DateTime date) {
+    _commitLocalAndSync(state.copyWith(gameDate: date));
   }
 
   void resetGame() {

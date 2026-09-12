@@ -50,6 +50,7 @@ class _GameListScreenState extends ConsumerState<GameListScreen> {
       top: input.teamNameTop,
       bottom: input.teamNameBottom,
     );
+    notifier.updateGameDate(input.gameDate);
     final gameId = DateTime.now().millisecondsSinceEpoch.toString();
     await _sync.createGame(notifier.toSavedGame(gameId), input.editKey);
     notifier.setCanEdit(true);
@@ -182,10 +183,10 @@ class _GameListScreenState extends ConsumerState<GameListScreen> {
               itemBuilder: (context, index) {
                 final game = games[index];
                 final replay = game.replay();
-                final savedAt = game.savedAt;
+                final gameDate = game.gameDate;
                 final dateLabel =
-                    '${savedAt.year}/${savedAt.month.toString().padLeft(2, '0')}/'
-                    '${savedAt.day.toString().padLeft(2, '0')}';
+                    '${gameDate.year}/${gameDate.month.toString().padLeft(2, '0')}/'
+                    '${gameDate.day.toString().padLeft(2, '0')}';
                 return Card(
                   key: ValueKey(game.gameId),
                   margin: const EdgeInsets.symmetric(
