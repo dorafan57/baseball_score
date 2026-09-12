@@ -1,8 +1,22 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers/theme_mode_provider.dart';
 import 'screens/game_list_screen.dart';
+
+/// PC（マウス操作）でも横スクロール表の内容をドラッグでスクロールできるようにする。
+/// 既定の `MaterialScrollBehavior` はタッチ・スタイラスのみが対象のため、
+/// マウスドラッグでは表がスクロールできず「見切れて見える」問題が起きていた。
+class _AppScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.trackpad,
+  };
+}
 
 /// スマートフォン向けレイアウトを想定しているため、通常の画面幅ではこの幅で
 /// 中央固定表示する。
@@ -23,6 +37,7 @@ class BaseballScoreApp extends ConsumerWidget {
     return MaterialApp(
       title: '草野球スコア',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: _AppScrollBehavior(),
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF1B5E20),

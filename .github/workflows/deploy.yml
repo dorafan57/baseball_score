@@ -1,0 +1,56 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: flutter pub get
+
+      - run: flutter analyze --no-pub
+
+      - run: flutter test
+
+      # バージョン表示（設定画面）は「更新日＋その日の何回目のデプロイか」の形式。
+      # 同じワークフローの本日分の実行回数を数え、日付が変わればリセットされる。
+      - name: バージョン文字列を算出する
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TODAY=$(date -u +%Y.%m.%d)
+          TODAY_ISO=$(date -u +%Y-%m-%d)
+          COUNT=$(gh api "repos/${{ github.repository }}/actions/workflows/deploy.yml/runs?per_page=100" \
+            --jq "[.workflow_runs[] | select(.created_at | startswith(\"${TODAY_ISO}\"))] | length")
+          echo "value=${TODAY}-${COUNT}" >> "$GITHUB_OUTPUT"
+
+      - name: Build web
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          flutter build web --release \
+            --base-href /baseball_score/ \
+            --dart-define=APP_VERSION=${{ steps.version.outputs.value }} \
+            --dart-define=BUILD_INFO=$SHORT_SHA
+
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web

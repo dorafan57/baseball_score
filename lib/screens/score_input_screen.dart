@@ -62,6 +62,8 @@ class _ScoreInputScreenState extends ConsumerState<ScoreInputScreen> {
 
   void _undo() => _notifier.undo();
 
+  void _redo() => _notifier.redo();
+
   void _deleteEvent(int eventId) {
     _notifier.deleteEvent(eventId);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -214,6 +216,11 @@ class _ScoreInputScreenState extends ConsumerState<ScoreInputScreen> {
             icon: const Icon(Icons.undo),
             tooltip: '1手戻す',
             onPressed: _gameEvents.isNotEmpty ? _undo : null,
+          ),
+          IconButton(
+            icon: const Icon(Icons.redo),
+            tooltip: '1手進める',
+            onPressed: session.canRedo ? _redo : null,
           ),
           IconButton(
             icon: const Icon(Icons.share),

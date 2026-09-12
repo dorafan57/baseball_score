@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 /// 成績テーブルの見出しセル。
 class StatsHeaderCell extends StatelessWidget {
   final String text;
-  final bool isAccent;
 
-  const StatsHeaderCell(this.text, {super.key, this.isAccent = false});
+  const StatsHeaderCell(this.text, {super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -14,8 +13,8 @@ class StatsHeaderCell extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         text,
-        style: TextStyle(
-          color: isAccent ? Colors.amberAccent : Colors.white,
+        style: const TextStyle(
+          color: Colors.white,
           fontWeight: FontWeight.bold,
           fontSize: 10,
         ),
@@ -28,14 +27,8 @@ class StatsHeaderCell extends StatelessWidget {
 class StatsDataCell extends StatelessWidget {
   final String text;
   final bool isBold;
-  final Color? textColor;
 
-  const StatsDataCell(
-    this.text, {
-    super.key,
-    this.isBold = false,
-    this.textColor,
-  });
+  const StatsDataCell(this.text, {super.key, this.isBold = false});
 
   @override
   Widget build(BuildContext context) {
@@ -44,10 +37,11 @@ class StatsDataCell extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         text,
+        textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 11,
           fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-          color: textColor ?? Colors.black87,
+          color: Colors.black87,
         ),
       ),
     );
@@ -59,15 +53,8 @@ class StatItem extends StatelessWidget {
   final String label;
   final String value;
   final bool isBold;
-  final Color? textColor;
 
-  const StatItem(
-    this.label,
-    this.value, {
-    super.key,
-    this.isBold = false,
-    this.textColor,
-  });
+  const StatItem(this.label, this.value, {super.key, this.isBold = false});
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +68,7 @@ class StatItem extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: textColor ?? Colors.black87,
+              color: Colors.black87,
             ),
           ),
         ],

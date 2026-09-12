@@ -41,17 +41,40 @@
   「現在の打席のマスだけを強調する」1つの意味に統一。
 - ダークテーマで併殺経路選択の文字が見にくかった問題を修正
   （背景・文字色を明示的に指定）。
-- 打者・投手成績の文字色に基準を設けて統一
-  （安打系＝青、得点関連＝赤、盗塁＝ティール、率＝緑、
-  それ以外の内訳項目は無色。詳細は `score_stats_tab.dart` 参照）。
 - 設定ダイアログからライト／ダーク／端末設定追従を手動切替できるように
   追加（`providers/theme_mode_provider.dart` で shared_preferences に永続化）。
 - デスクトップサイズの画面ではアプリの表示幅を480pxから900pxまで
   広げるよう変更（`lib/app.dart` の `kWideScreenBreakpoint` /
   `kAppMaxWidthWide`）。この仕様変更に合わせて `CLAUDE.md` も更新済み。
 - 設定ダイアログにバージョン情報を表示（`lib/app_version.dart`）。
-  コミットハッシュ等を埋め込みたい場合はビルド時に
-  `--dart-define=BUILD_INFO=...` を渡す。
+  当初は手動管理だったが、後述のデプロイ自動化にあわせて
+  「年.月.日-その日の何回目のデプロイか」形式へ変更（自動算出）。
+- 打者・投手成績表の文字色分け（安打＝青、打点／得点＝赤、盗塁＝ティール、
+  率＝緑など）をあまり意味がないため撤廃し、全項目を無地の文字に統一
+  （`stat_widgets.dart` の `isAccent`/`textColor` を削除し、
+  `score_stats_tab.dart` の全呼び出し箇所を追随）。
+- PCのChromeで打者・投手成績表やラインスコアが横スクロールできず
+  見切れていた問題を修正。`lib/app.dart` にマウスドラッグでもスクロール
+  できる `ScrollBehavior` を追加し、各表に `Scrollbar`
+  （`thumbVisibility: true`）を付けて存在が分かるようにした。
+- 盤面入力タブの回移動表示を拡大して見やすくし、横スクロールしても
+  常に見える位置に「計（合計得点・安打数）」欄を追加
+  （`input_tab.dart`）。
+- 盤面入力タブに「打順（攻撃中チーム名）」ラベルを追加し、
+  打者チップの並びが打順の巡りを表すことが分かるようにした
+  （`input_tab.dart`）。既存の打者チップ列自体は打順表示として機能済み。
+- 「1手戻す」（undo）はあったが「1手進める」（redo）がなかったため追加。
+  `GameSessionState.redoStack` に取り消したイベントを積んでおき、
+  新規記録・削除で無効化する方式（`game_provider.dart` /
+  `score_input_screen.dart`）。
+- main へのプッシュで GitHub Pages へ自動デプロイするワークフローを追加
+  （`.github/workflows/deploy.yml`）。`flutter analyze` / `flutter test` を
+  通してから `flutter build web` し、`gh-pages` ブランチへ発行する
+  （`peaceiris/actions-gh-pages`）。公開URLは
+  `https://dorafan57.github.io/baseball_score/`
+  （リポジトリ設定で Pages のソースが `gh-pages` ブランチになっていることを
+  一度確認すること）。ビルド時に `--dart-define=APP_VERSION=...` /
+  `BUILD_INFO=...` を渡し、設定画面のバージョン表示に反映する。
 
 ### 未対応・要確認
 

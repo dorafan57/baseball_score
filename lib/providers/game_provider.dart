@@ -46,6 +46,11 @@ class GameSessionState {
   /// [gameEvents] を再生した結果。
   final GameState replay;
 
+  /// `undo()` で取り消したイベントを新しい順に積んでおくスタック。
+  /// `redo()` で末尾から取り出して [gameEvents] へ戻す。
+  /// 新規にイベントを記録・削除するとやり直し先が失われるため空にする。
+  final List<GameEvent> redoStack;
+
   const GameSessionState({
     required this.gameEvents,
     required this.nextEventId,
@@ -63,6 +68,7 @@ class GameSessionState {
     required this.currentPitcherIdTop,
     required this.currentPitcherIdBottom,
     required this.replay,
+    this.redoStack = const [],
   });
 
   factory GameSessionState.initial() {
@@ -134,6 +140,7 @@ class GameSessionState {
     String? currentPitcherIdTop,
     String? currentPitcherIdBottom,
     GameState? replay,
+    List<GameEvent>? redoStack,
   }) {
     return GameSessionState(
       gameEvents: gameEvents ?? this.gameEvents,
@@ -153,8 +160,12 @@ class GameSessionState {
       currentPitcherIdBottom:
           currentPitcherIdBottom ?? this.currentPitcherIdBottom,
       replay: replay ?? this.replay,
+      redoStack: redoStack ?? this.redoStack,
     );
   }
+
+  /// やり直せる（`redo()` できる）取り消し済みイベントがあるか。
+  bool get canRedo => redoStack.isNotEmpty;
 
   // --- 以下は保持しているフィールドから導出される読み取り専用の値 ---
 
@@ -279,9 +290,9 @@ class GameNotifier extends Notifier<GameSessionState> {
   }
 
   GameSessionState _withCurrentBatterIndex(GameSessionState s, int val) =>
-      s.isTop ? s.copyWith(batterIndexTop: val) : s.copyWith(
-        batterIndexBottom: val,
-      );
+      s.isTop
+      ? s.copyWith(batterIndexTop: val)
+      : s.copyWith(batterIndexBottom: val);
 
   GameSessionState _withCurrentCycle(GameSessionState s, int val) => s.isTop
       ? s.copyWith(cycleIndexTop: val)
@@ -328,6 +339,9 @@ class GameNotifier extends Notifier<GameSessionState> {
   }
 
   /// 直前に記録したイベントを取り消し、選択中の打席もそこへ巻き戻す。
+  ///
+  /// 取り消したイベントは [GameSessionState.redoStack] に積んでおき、
+  /// `redo()` でやり直せるようにする。
   void undo() {
     final s = state;
     if (s.gameEvents.isEmpty) {
@@ -337,6 +351,7 @@ class GameNotifier extends Notifier<GameSessionState> {
     final last = events.removeLast();
     var next = s.copyWith(
       gameEvents: events,
+      redoStack: [...s.redoStack, last],
       inning: last.inning,
       isTop: last.isTop,
     );
@@ -347,11 +362,38 @@ class GameNotifier extends Notifier<GameSessionState> {
     state = _recomputeReplay(next);
   }
 
+  /// `undo()` で取り消した直前のイベントを記録し直す。
+  void redo() {
+    final s = state;
+    if (s.redoStack.isEmpty) {
+      return;
+    }
+    final redoStack = [...s.redoStack];
+    final event = redoStack.removeLast();
+
+    var next = s.copyWith(
+      gameEvents: [...s.gameEvents, event],
+      redoStack: redoStack,
+      inning: event.inning,
+      isTop: event.isTop,
+    );
+    next = _withCurrentCycle(next, event.cycleIndex);
+    if (event.batterIndex >= 0 && !event.isBaserunningEvent) {
+      next = _withCurrentBatterIndex(next, event.batterIndex);
+    }
+    next = _recomputeReplay(next);
+
+    final (afterChange, changed) = _changeInningIfCompleted(next);
+    state = (!changed && !event.isBaserunningEvent)
+        ? _nextBatter(afterChange)
+        : afterChange;
+  }
+
   void deleteEvent(int eventId) {
-    final events = state.gameEvents
-        .where((e) => e.eventId != eventId)
-        .toList();
-    state = _recomputeReplay(state.copyWith(gameEvents: events));
+    final events = state.gameEvents.where((e) => e.eventId != eventId).toList();
+    state = _recomputeReplay(
+      state.copyWith(gameEvents: events, redoStack: const []),
+    );
   }
 
   void deleteCurrentPlateEvent() {
@@ -434,7 +476,11 @@ class GameNotifier extends Notifier<GameSessionState> {
       ),
     ];
     final next = _recomputeReplay(
-      s.copyWith(gameEvents: events, nextEventId: s.nextEventId + 1),
+      s.copyWith(
+        gameEvents: events,
+        nextEventId: s.nextEventId + 1,
+        redoStack: const [],
+      ),
     );
     final (afterChange, _) = _changeInningIfCompleted(next);
     state = afterChange;
@@ -579,6 +625,7 @@ class GameNotifier extends Notifier<GameSessionState> {
     var next = s.copyWith(
       gameEvents: events,
       nextEventId: isUpdate ? s.nextEventId : s.nextEventId + 1,
+      redoStack: const [],
     );
     next = _recomputeReplay(next);
 
@@ -664,6 +711,7 @@ class GameNotifier extends Notifier<GameSessionState> {
         batterIndexBottom: 0,
         cycleIndexTop: 0,
         cycleIndexBottom: 0,
+        redoStack: const [],
       ),
     );
   }

@@ -67,6 +67,8 @@ class InputTab extends StatelessWidget {
     final maxCycleInCurrentInning = session.maxCycleInCurrentInning;
     final gameEvents = session.gameEvents;
     final currentCycle = session.currentCycle;
+    final totalHitsTop = session.totalHitsTop;
+    final totalHitsBottom = session.totalHitsBottom;
 
     int displayInnings = scoresTop.length > totalInningsConfig
         ? scoresTop.length
@@ -113,113 +115,170 @@ class InputTab extends StatelessWidget {
                 const Divider(color: Colors.white24, height: 1),
                 const SizedBox(height: 4),
 
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 4,
-                        ),
-                        child: const Text(
-                          '回移動▶',
-                          style: TextStyle(
-                            color: Colors.white60,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: const Text(
+                        '回移動▶',
+                        style: TextStyle(
+                          color: Colors.white60,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      ...List.generate(displayInnings, (i) {
-                        int inn = i + 1;
-                        bool isCurrentTop = (inning == inn && isTop);
-                        bool isCurrentBottom = (inning == inn && !isTop);
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            ...List.generate(displayInnings, (i) {
+                              int inn = i + 1;
+                              bool isCurrentTop = (inning == inn && isTop);
+                              bool isCurrentBottom = (inning == inn && !isTop);
 
-                        return Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 2),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: (inning == inn)
-                                  ? Colors.amberAccent
-                                  : Colors.white24,
-                              width: (inning == inn) ? 1.5 : 0.8,
+                              return Container(
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: (inning == inn)
+                                        ? Colors.amberAccent
+                                        : Colors.white24,
+                                    width: (inning == inn) ? 1.5 : 0.8,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 2,
+                                      ),
+                                      color: Colors.black26,
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        '$inn回',
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ),
+                                    InkWell(
+                                      onTap: () {
+                                        onJumpToInning(inn, true);
+                                      },
+                                      child: Container(
+                                        width: 40,
+                                        height: 28,
+                                        color: isCurrentTop
+                                            ? Colors.amber.shade700
+                                            : Colors.white12,
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          '${scoresTop.length > i ? scoresTop[i] : 0}',
+                                          style: TextStyle(
+                                            color: isCurrentTop
+                                                ? Colors.white
+                                                : Colors.white70,
+                                            fontSize: 14,
+                                            fontWeight: isCurrentTop
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    InkWell(
+                                      onTap: () {
+                                        onJumpToInning(inn, false);
+                                      },
+                                      child: Container(
+                                        width: 40,
+                                        height: 28,
+                                        color: isCurrentBottom
+                                            ? Colors.amber.shade700
+                                            : Colors.black12,
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          '${scoresBottom.length > i ? scoresBottom[i] : 0}',
+                                          style: TextStyle(
+                                            color: isCurrentBottom
+                                                ? Colors.white
+                                                : Colors.white70,
+                                            fontSize: 14,
+                                            fontWeight: isCurrentBottom
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    // 回移動の一覧が横スクロールしても常に見える、計（合計得点・安打数）欄。
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white24, width: 0.8),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 46,
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            color: Colors.black26,
+                            alignment: Alignment.center,
+                            child: const Text(
+                              '計(安打)',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 10,
+                              ),
                             ),
-                            borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Column(
-                            children: [
-                              Container(
-                                width: 32,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 2,
-                                ),
-                                color: Colors.black26,
-                                alignment: Alignment.center,
-                                child: Text(
-                                  '$inn回',
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 9,
-                                  ),
-                                ),
+                          Container(
+                            width: 46,
+                            height: 28,
+                            alignment: Alignment.center,
+                            child: Text(
+                              '$totalScoreTop ($totalHitsTop)',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
                               ),
-                              InkWell(
-                                onTap: () {
-                                  onJumpToInning(inn, true);
-                                },
-                                child: Container(
-                                  width: 32,
-                                  height: 22,
-                                  color: isCurrentTop
-                                      ? Colors.amber.shade700
-                                      : Colors.white12,
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    '${scoresTop.length > i ? scoresTop[i] : 0}',
-                                    style: TextStyle(
-                                      color: isCurrentTop
-                                          ? Colors.white
-                                          : Colors.white70,
-                                      fontSize: 11,
-                                      fontWeight: isCurrentTop
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              InkWell(
-                                onTap: () {
-                                  onJumpToInning(inn, false);
-                                },
-                                child: Container(
-                                  width: 32,
-                                  height: 22,
-                                  color: isCurrentBottom
-                                      ? Colors.amber.shade700
-                                      : Colors.black12,
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    '${scoresBottom.length > i ? scoresBottom[i] : 0}',
-                                    style: TextStyle(
-                                      color: isCurrentBottom
-                                          ? Colors.white
-                                          : Colors.white70,
-                                      fontSize: 11,
-                                      fontWeight: isCurrentBottom
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-                        );
-                      }),
-                    ],
-                  ),
+                          Container(
+                            width: 46,
+                            height: 28,
+                            alignment: Alignment.center,
+                            child: Text(
+                              '$totalScoreBottom ($totalHitsBottom)',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -404,6 +463,21 @@ class InputTab extends StatelessWidget {
           ),
           const SizedBox(height: 6),
 
+          Row(
+            children: [
+              const Icon(Icons.repeat, size: 13, color: Colors.black54),
+              const SizedBox(width: 4),
+              Text(
+                '打順（$currentAttackingTeamName）',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black54,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
