@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app_version.dart';
 import '../../providers/game_provider.dart';
 import '../../providers/theme_mode_provider.dart';
 import 'reset_confirm_dialog.dart';
@@ -110,6 +111,13 @@ class _SettingsDialogState extends ConsumerState<_SettingsDialog> {
                 '試合スコアを全リセット',
                 style: TextStyle(color: Colors.red),
               ),
+            ),
+            const Divider(height: 24),
+            Text(
+              kBuildInfo.isEmpty
+                  ? 'バージョン: $kAppVersion'
+                  : 'バージョン: $kAppVersion ($kBuildInfo)',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
             ),
           ],
         ),
