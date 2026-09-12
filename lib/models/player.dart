@@ -24,7 +24,11 @@ class Player {
   }) : stats = stats ?? PlayerStats.empty();
 
   /// 名簿情報のみを保存する（成績は replayGame() で再現するため含めない）。
-  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'position': position};
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'position': position,
+  };
 
   factory Player.fromJson(Map<String, dynamic> json) => Player(
     id: json['id'] as String,

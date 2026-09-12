@@ -1,9 +1,10 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'providers/theme_mode_provider.dart';
-import 'screens/game_list_screen.dart';
+import 'router.dart';
 
 /// PC（マウス操作）でも横スクロール表の内容をドラッグでスクロールできるようにする。
 /// 既定の `MaterialScrollBehavior` はタッチ・スタイラスのみが対象のため、
@@ -28,13 +29,23 @@ const double kWideScreenBreakpoint = 700;
 /// デスクトップなど横幅の広い画面で許容する最大幅。
 const double kAppMaxWidthWide = 900;
 
-class BaseballScoreApp extends ConsumerWidget {
+class BaseballScoreApp extends ConsumerStatefulWidget {
   const BaseballScoreApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BaseballScoreApp> createState() => _BaseballScoreAppState();
+}
+
+class _BaseballScoreAppState extends ConsumerState<BaseballScoreApp> {
+  // GoRouterはウィジェットごとに一度だけ生成する
+  // （ウィジェットテストのたびに新しいナビゲーション履歴で始められるようにするため）。
+  late final GoRouter _router = buildRouter();
+
+  @override
+  Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
-    return MaterialApp(
+    return MaterialApp.router(
+      routerConfig: _router,
       title: '草野球スコア',
       debugShowCheckedModeBanner: false,
       scrollBehavior: _AppScrollBehavior(),
@@ -68,7 +79,6 @@ class BaseballScoreApp extends ConsumerWidget {
           ),
         );
       },
-      home: const GameListScreen(),
     );
   }
 }

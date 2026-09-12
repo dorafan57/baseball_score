@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/game_event.dart';
 import '../models/game_state.dart';
 import '../providers/game_provider.dart';
-import '../services/game_sync_service.dart';
 import '../widgets/board/input_tab.dart';
 import '../widgets/dialogs/game_history_dialog.dart';
 import '../widgets/dialogs/settings_dialog.dart';
@@ -188,6 +189,7 @@ class _ScoreInputScreenState extends ConsumerState<ScoreInputScreen> {
     sb.writeln(topRow);
     sb.writeln(btmRow);
     sb.writeln('');
+    sb.writeln(Uri.base.toString());
     sb.writeln('#草野球スコア #野球');
     return sb.toString();
   }
@@ -197,15 +199,19 @@ class _ScoreInputScreenState extends ConsumerState<ScoreInputScreen> {
     Share.share(text);
   }
 
-  Future<void> _saveAndExit() async {
-    if (_session.canEdit) {
-      final saved = _notifier.toSavedGame(widget.gameId);
-      await ref.read(gameSyncServiceProvider).saveGame(saved);
-    }
+  Future<void> _copyLink() async {
+    await Clipboard.setData(ClipboardData(text: Uri.base.toString()));
     if (!mounted) {
       return;
     }
-    Navigator.pop(context);
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('この試合のURLをコピーしました。')));
+  }
+
+  // 変更はすべて記録の都度Firestoreへ同期済みのため、離脱時に改めて
+  // 保存する必要はない。
+  void _exit() {
+    context.go('/');
   }
 
   @override
@@ -213,6 +219,17 @@ class _ScoreInputScreenState extends ConsumerState<ScoreInputScreen> {
     // 進行状態が変わるたびにこの画面を再描画するための購読。
     final session = ref.watch(gameProvider);
     final notifier = _notifier;
+
+    // 楽観的並行性制御で書き込みが競合した際のメッセージ表示。
+    // 新たな ref.watch(gameProvider) は増やさず、ref.listen で監視する。
+    ref.listen(conflictMessageProvider, (previous, next) {
+      if (next == null) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(next)));
+      ref.read(conflictMessageProvider.notifier).clear();
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -236,9 +253,7 @@ class _ScoreInputScreenState extends ConsumerState<ScoreInputScreen> {
           IconButton(
             icon: const Icon(Icons.undo),
             tooltip: '1手戻す',
-            onPressed: session.canEdit && _gameEvents.isNotEmpty
-                ? _undo
-                : null,
+            onPressed: session.canEdit && _gameEvents.isNotEmpty ? _undo : null,
           ),
           IconButton(
             icon: const Icon(Icons.redo),
@@ -249,6 +264,11 @@ class _ScoreInputScreenState extends ConsumerState<ScoreInputScreen> {
             icon: const Icon(Icons.share),
             tooltip: '試合結果をシェア',
             onPressed: _shareResult,
+          ),
+          IconButton(
+            icon: const Icon(Icons.link),
+            tooltip: 'この試合のURLをコピー',
+            onPressed: _copyLink,
           ),
           IconButton(
             icon: const Icon(Icons.settings),
@@ -268,7 +288,7 @@ class _ScoreInputScreenState extends ConsumerState<ScoreInputScreen> {
               onJumpToInning: _jumpToInning,
               onJumpToBatter: _jumpToBatter,
               onDeleteCurrentPlateEvent: _deleteCurrentPlateEvent,
-              onSaveAndExit: _saveAndExit,
+              onExit: _exit,
             )
           : ScoreStatsTab(
               session: session,

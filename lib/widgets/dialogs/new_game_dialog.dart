@@ -88,7 +88,9 @@ class _NewGameDialogState extends State<_NewGameDialog> {
               helperText: 'この試合を編集する人に共有してください',
               errorText: _keyError,
               suffixIcon: IconButton(
-                icon: Icon(_obscureKey ? Icons.visibility : Icons.visibility_off),
+                icon: Icon(
+                  _obscureKey ? Icons.visibility : Icons.visibility_off,
+                ),
                 onPressed: () => setState(() => _obscureKey = !_obscureKey),
               ),
             ),

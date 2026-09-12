@@ -160,9 +160,7 @@ class GameEvent {
       return description;
     }
     if (r == AtBatResult.doublePlay) {
-      return direction == '併殺' || direction.isEmpty
-          ? '併殺'
-          : '$direction併殺';
+      return direction == '併殺' || direction.isEmpty ? '併殺' : '$direction併殺';
     }
     if (r.needsDirection) {
       return '$direction${r.shortLabel}';

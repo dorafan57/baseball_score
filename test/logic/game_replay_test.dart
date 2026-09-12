@@ -349,11 +349,11 @@ void main() {
         ],
       );
 
-      expect(
-        state.events.map((e) => e.eventId),
-        [1, 3, 2],
-        reason: '回 → 表裏 → 記録順に並べ替えられる',
-      );
+      expect(state.events.map((e) => e.eventId), [
+        1,
+        3,
+        2,
+      ], reason: '回 → 表裏 → 記録順に並べ替えられる');
 
       final secondAtBatOfFirstInning = state.events[1];
       expect(

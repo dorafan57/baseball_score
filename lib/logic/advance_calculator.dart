@@ -74,10 +74,7 @@ AdvanceState calculateDefaultAdvance({
     case AtBatResult.doubleHit:
       score(runners.runner3rd);
       score(runners.runner2nd);
-      next = BaseRunners(
-        runner2nd: batterId,
-        runner3rd: runners.runner1st,
-      );
+      next = BaseRunners(runner2nd: batterId, runner3rd: runners.runner1st);
       break;
 
     case AtBatResult.tripleHit:

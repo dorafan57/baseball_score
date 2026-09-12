@@ -90,7 +90,9 @@ class _EditKeyGateDialogState extends State<_EditKeyGateDialog> {
               labelText: '編集キー',
               errorText: _error,
               suffixIcon: IconButton(
-                icon: Icon(_obscureKey ? Icons.visibility : Icons.visibility_off),
+                icon: Icon(
+                  _obscureKey ? Icons.visibility : Icons.visibility_off,
+                ),
                 onPressed: () => setState(() => _obscureKey = !_obscureKey),
               ),
             ),

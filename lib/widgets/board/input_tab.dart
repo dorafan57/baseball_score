@@ -28,8 +28,8 @@ class InputTab extends StatelessWidget {
   /// 現在選択中の打席の入力を削除する。
   final VoidCallback onDeleteCurrentPlateEvent;
 
-  /// 試合を保存して一覧へ戻る。
-  final VoidCallback onSaveAndExit;
+  /// 試合一覧へ戻る（変更はすべて記録の都度同期済みのため保存は不要）。
+  final VoidCallback onExit;
 
   const InputTab({
     super.key,
@@ -38,7 +38,7 @@ class InputTab extends StatelessWidget {
     required this.onJumpToInning,
     required this.onJumpToBatter,
     required this.onDeleteCurrentPlateEvent,
-    required this.onSaveAndExit,
+    required this.onExit,
   });
 
   /// 守備位置からその位置を守っている選手を引く。
@@ -829,7 +829,7 @@ class InputTab extends StatelessWidget {
           const SizedBox(height: 30),
           Center(
             child: ElevatedButton.icon(
-              onPressed: onSaveAndExit,
+              onPressed: onExit,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1B5E20),
                 foregroundColor: Colors.white,
@@ -838,9 +838,9 @@ class InputTab extends StatelessWidget {
                   vertical: 12,
                 ),
               ),
-              icon: const Icon(Icons.save),
+              icon: const Icon(Icons.arrow_back),
               label: const Text(
-                '保存して一覧に戻る',
+                '一覧に戻る',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),

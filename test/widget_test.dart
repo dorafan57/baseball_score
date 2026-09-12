@@ -19,7 +19,10 @@ class FakeGameSyncService implements GameSyncService {
   }
 
   @override
-  Future<void> saveGame(SavedGame game) async {
+  Future<void> saveGameIfVersionMatches(
+    SavedGame game,
+    int expectedVersion,
+  ) async {
     _games[game.gameId] = game;
   }
 
@@ -29,7 +32,18 @@ class FakeGameSyncService implements GameSyncService {
   }
 
   @override
-  Stream<SavedGame?> watchGame(String gameId) => const Stream.empty();
+  Future<void> reorderGames(List<String> gameIdsInOrder) async {
+    final reordered = {
+      for (final id in gameIdsInOrder)
+        if (_games.containsKey(id)) id: _games[id]!,
+    };
+    _games
+      ..clear()
+      ..addAll(reordered);
+  }
+
+  @override
+  Stream<WatchedGame?> watchGame(String gameId) => const Stream.empty();
 
   @override
   Future<bool> isEditor(String gameId) async => true;
@@ -40,9 +54,7 @@ class FakeGameSyncService implements GameSyncService {
 
 /// テスト用に [FakeGameSyncService] で上書きした [ProviderScope] を返す。
 Widget testApp() => ProviderScope(
-  overrides: [
-    gameSyncServiceProvider.overrideWithValue(FakeGameSyncService()),
-  ],
+  overrides: [gameSyncServiceProvider.overrideWithValue(FakeGameSyncService())],
   child: const BaseballScoreApp(),
 );
 

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/saved_game.dart';
 import '../providers/game_provider.dart';
 import '../services/game_sync_service.dart';
 import '../widgets/dialogs/edit_key_gate_dialog.dart';
 import '../widgets/dialogs/new_game_dialog.dart';
-import 'score_input_screen.dart';
 
 // ==========================================
 // 試合一覧・管理画面 (ホーム画面)
@@ -55,11 +55,7 @@ class _GameListScreenState extends ConsumerState<GameListScreen> {
     if (!mounted) {
       return;
     }
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => ScoreInputScreen(gameId: gameId)),
-    );
-    _loadGames();
+    context.go('/game/$gameId');
   }
 
   /// まだ編集権限を持っていなければ、鍵入力ダイアログで編集権限を得るか
@@ -87,13 +83,7 @@ class _GameListScreenState extends ConsumerState<GameListScreen> {
     final notifier = ref.read(gameProvider.notifier);
     notifier.loadGame(game);
     notifier.setCanEdit(canEdit);
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ScoreInputScreen(gameId: game.gameId),
-      ),
-    );
-    _loadGames();
+    context.go('/game/${game.gameId}');
   }
 
   Future<void> _confirmDeleteGame(SavedGame game) async {
@@ -128,6 +118,20 @@ class _GameListScreenState extends ConsumerState<GameListScreen> {
     }
   }
 
+  Future<void> _reorderGames(int oldIndex, int newIndex) async {
+    final games = _savedGames;
+    if (games == null) {
+      return;
+    }
+    final reordered = [...games];
+    final moved = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, moved);
+    setState(() {
+      _savedGames = reordered;
+    });
+    await _sync.reorderGames(reordered.map((g) => g.gameId).toList());
+  }
+
   @override
   Widget build(BuildContext context) {
     final games = _savedGames;
@@ -150,8 +154,10 @@ class _GameListScreenState extends ConsumerState<GameListScreen> {
                 style: TextStyle(color: Colors.grey),
               ),
             )
-          : ListView.builder(
+          : ReorderableListView.builder(
+              buildDefaultDragHandles: false,
               itemCount: games.length,
+              onReorderItem: _reorderGames,
               itemBuilder: (context, index) {
                 final game = games[index];
                 final replay = game.replay();
@@ -160,6 +166,7 @@ class _GameListScreenState extends ConsumerState<GameListScreen> {
                     '${savedAt.year}/${savedAt.month.toString().padLeft(2, '0')}/'
                     '${savedAt.day.toString().padLeft(2, '0')}';
                 return Card(
+                  key: ValueKey(game.gameId),
                   margin: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 6,
@@ -176,7 +183,19 @@ class _GameListScreenState extends ConsumerState<GameListScreen> {
                     subtitle: Text(
                       '$dateLabel | 結果: ${replay.totalScoreTop} - ${replay.totalScoreBottom}',
                     ),
-                    trailing: const Icon(Icons.chevron_right),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ReorderableDragStartListener(
+                          index: index,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 4),
+                            child: Icon(Icons.drag_handle),
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right),
+                      ],
+                    ),
                     onTap: () => _openGame(game),
                     onLongPress: () => _confirmDeleteGame(game),
                   ),

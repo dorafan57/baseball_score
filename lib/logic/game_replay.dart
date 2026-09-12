@@ -11,10 +11,7 @@ import '../models/resolved_event.dart';
 ///
 /// [minInnings] はラインスコアに最低限確保するイニング数。実際に記録された
 /// イニングがこれを超える場合は、そちらに合わせて拡張する。
-GameState replayGame({
-  required List<GameEvent> events,
-  int minInnings = 7,
-}) {
+GameState replayGame({required List<GameEvent> events, int minInnings = 7}) {
   final ordered = _ordered(events);
 
   var inningCount = minInnings < 1 ? 1 : minInnings;

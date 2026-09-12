@@ -268,26 +268,65 @@ class GameNotifier extends Notifier<GameSessionState> {
   @override
   GameSessionState build() => GameSessionState.initial();
 
-  StreamSubscription<SavedGame?>? _remoteSub;
+  StreamSubscription<WatchedGame?>? _remoteSub;
+
+  /// 現在リアルタイム購読中の試合ID。`null` の間は完全ローカル動作
+  /// （既存の単体テストを含む）で、変更系メソッドはネットワークに触れない。
+  String? _syncedGameId;
+
+  /// 購読中のドキュメントについて最後に確認できた `docVersion`。
+  /// 変更を送信する際、この版からサーバーが進んでいなければ
+  /// 楽観的並行性制御により書き込みが成功する。
+  int _lastKnownDocVersion = 0;
 
   /// 指定した試合のリアルタイム購読を開始する。他の編集者・閲覧者による
   /// 変更が届くたびに [loadGame] で state を最新の内容に置き換える。
   void connectToRemote(String gameId) {
     _remoteSub?.cancel();
-    _remoteSub = ref
-        .read(gameSyncServiceProvider)
-        .watchGame(gameId)
-        .listen((saved) {
-          if (saved != null) {
-            loadGame(saved);
-          }
-        });
+    _syncedGameId = gameId;
+    _remoteSub = ref.read(gameSyncServiceProvider).watchGame(gameId).listen((
+      watched,
+    ) {
+      if (watched != null) {
+        _lastKnownDocVersion = watched.docVersion;
+        loadGame(watched.game);
+      }
+    });
   }
 
   /// リアルタイム購読を終了する。画面を離れる際に必ず呼ぶこと。
   void disconnectFromRemote() {
     _remoteSub?.cancel();
     _remoteSub = null;
+    _syncedGameId = null;
+  }
+
+  /// ローカルへ即座に反映しつつ（楽観的更新）、購読中の試合があれば
+  /// バックグラウンドでFirestoreへも同期する。
+  ///
+  /// サーバー側の `docVersion` が自分の知っている版から進んでいた場合
+  /// （＝他の人が同時に更新した場合）は書き込みを諦め、競合メッセージを
+  /// 表示する。購読中の [connectToRemote] のリスナーが直後に最新の内容を
+  /// 配信し、上で楽観的に当てた state を正しい内容へ上書きする。
+  void _commitLocalAndSync(GameSessionState next) {
+    state = next;
+    final gameId = _syncedGameId;
+    if (gameId == null) {
+      return;
+    }
+    unawaited(_syncToRemote(gameId, next));
+  }
+
+  Future<void> _syncToRemote(String gameId, GameSessionState next) async {
+    try {
+      await ref
+          .read(gameSyncServiceProvider)
+          .saveGameIfVersionMatches(toSavedGame(gameId), _lastKnownDocVersion);
+    } on StaleGameStateException {
+      ref
+          .read(conflictMessageProvider.notifier)
+          .show('他の人が同時に更新しました。最新の状態を表示しています。もう一度入力してください。');
+    }
   }
 
   GameSessionState _recomputeReplay(GameSessionState s) {
@@ -373,7 +412,7 @@ class GameNotifier extends Notifier<GameSessionState> {
       next = _withCurrentBatterIndex(next, last.batterIndex);
     }
     next = _withCurrentCycle(next, last.cycleIndex);
-    state = _recomputeReplay(next);
+    _commitLocalAndSync(_recomputeReplay(next));
   }
 
   /// `undo()` で取り消した直前のイベントを記録し直す。
@@ -398,15 +437,17 @@ class GameNotifier extends Notifier<GameSessionState> {
     next = _recomputeReplay(next);
 
     final (afterChange, changed) = _changeInningIfCompleted(next);
-    state = (!changed && !event.isBaserunningEvent)
-        ? _nextBatter(afterChange)
-        : afterChange;
+    _commitLocalAndSync(
+      (!changed && !event.isBaserunningEvent)
+          ? _nextBatter(afterChange)
+          : afterChange,
+    );
   }
 
   void deleteEvent(int eventId) {
     final events = state.gameEvents.where((e) => e.eventId != eventId).toList();
-    state = _recomputeReplay(
-      state.copyWith(gameEvents: events, redoStack: const []),
+    _commitLocalAndSync(
+      _recomputeReplay(state.copyWith(gameEvents: events, redoStack: const [])),
     );
   }
 
@@ -497,7 +538,7 @@ class GameNotifier extends Notifier<GameSessionState> {
       ),
     );
     final (afterChange, _) = _changeInningIfCompleted(next);
-    state = afterChange;
+    _commitLocalAndSync(afterChange);
   }
 
   /// 打席結果を、標準的な進塁ルールにしたがって記録する。
@@ -644,7 +685,9 @@ class GameNotifier extends Notifier<GameSessionState> {
     next = _recomputeReplay(next);
 
     final (afterChange, changed) = _changeInningIfCompleted(next);
-    state = (!changed && !isUpdate) ? _nextBatter(afterChange) : afterChange;
+    _commitLocalAndSync(
+      (!changed && !isUpdate) ? _nextBatter(afterChange) : afterChange,
+    );
   }
 
   /// 名簿・チーム名も含めて初期状態から新しい試合を開始する。
@@ -709,31 +752,39 @@ class GameNotifier extends Notifier<GameSessionState> {
 
   void changePitcher(String playerId) {
     final s = state;
-    state = s.isTop
-        ? s.copyWith(currentPitcherIdBottom: playerId)
-        : s.copyWith(currentPitcherIdTop: playerId);
+    _commitLocalAndSync(
+      s.isTop
+          ? s.copyWith(currentPitcherIdBottom: playerId)
+          : s.copyWith(currentPitcherIdTop: playerId),
+    );
   }
 
   void setTotalInnings(int val) {
-    state = _recomputeReplay(state.copyWith(totalInningsConfig: val));
+    _commitLocalAndSync(
+      _recomputeReplay(state.copyWith(totalInningsConfig: val)),
+    );
   }
 
   void updateTeamNames({required String top, required String bottom}) {
-    state = state.copyWith(teamNameTop: top, teamNameBottom: bottom);
+    _commitLocalAndSync(
+      state.copyWith(teamNameTop: top, teamNameBottom: bottom),
+    );
   }
 
   void resetGame() {
-    state = _recomputeReplay(
-      state.copyWith(
-        gameEvents: const [],
-        nextEventId: 1,
-        inning: 1,
-        isTop: true,
-        batterIndexTop: 0,
-        batterIndexBottom: 0,
-        cycleIndexTop: 0,
-        cycleIndexBottom: 0,
-        redoStack: const [],
+    _commitLocalAndSync(
+      _recomputeReplay(
+        state.copyWith(
+          gameEvents: const [],
+          nextEventId: 1,
+          inning: 1,
+          isTop: true,
+          batterIndexTop: 0,
+          batterIndexBottom: 0,
+          cycleIndexTop: 0,
+          cycleIndexBottom: 0,
+          redoStack: const [],
+        ),
       ),
     );
   }
@@ -760,17 +811,37 @@ class GameNotifier extends Notifier<GameSessionState> {
       name: '選手名${list.length + 1}',
       position: '',
     );
-    state = toTopTeam
-        ? s.copyWith(playersTop: [...list, newPlayer])
-        : s.copyWith(playersBottom: [...list, newPlayer]);
+    _commitLocalAndSync(
+      toTopTeam
+          ? s.copyWith(playersTop: [...list, newPlayer])
+          : s.copyWith(playersBottom: [...list, newPlayer]),
+    );
   }
 
   /// 選手一覧の中身を直接ミューテートした後、UI に変更を通知する。
   void touch() {
-    state = state.copyWith();
+    _commitLocalAndSync(state.copyWith());
   }
 }
 
 final gameProvider = NotifierProvider<GameNotifier, GameSessionState>(
   GameNotifier.new,
 );
+
+/// 楽観的並行性制御で書き込みが競合した際に表示するメッセージ。
+///
+/// `null` は「表示すべきメッセージなし」を表す。表示側
+/// （`ScoreInputScreen`）は `ref.listen` で監視し、表示後にこの値を
+/// `null` へ戻す。
+class ConflictMessageNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void show(String message) => state = message;
+  void clear() => state = null;
+}
+
+final conflictMessageProvider =
+    NotifierProvider<ConflictMessageNotifier, String?>(
+      ConflictMessageNotifier.new,
+    );
