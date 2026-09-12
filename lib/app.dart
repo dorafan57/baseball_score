@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'providers/theme_mode_provider.dart';
 import 'screens/game_list_screen.dart';
 
 /// スマートフォン向けレイアウトを想定しているため、通常の画面幅ではこの幅で
@@ -12,11 +14,12 @@ const double kWideScreenBreakpoint = 700;
 /// デスクトップなど横幅の広い画面で許容する最大幅。
 const double kAppMaxWidthWide = 900;
 
-class BaseballScoreApp extends StatelessWidget {
+class BaseballScoreApp extends ConsumerWidget {
   const BaseballScoreApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
       title: '草野球スコア',
       debugShowCheckedModeBanner: false,
@@ -35,8 +38,8 @@ class BaseballScoreApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      // OS のテーマ設定（ライト／ダーク）に追従する。
-      themeMode: ThemeMode.system,
+      // 設定画面で選択したテーマ（既定は端末設定に追従）。
+      themeMode: themeMode,
       // ダイアログも含めた画面全体の最大幅を画面サイズに応じて制限する。
       builder: (context, child) {
         final screenWidth = MediaQuery.sizeOf(context).width;
