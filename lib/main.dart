@@ -1,4 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+import 'logic/advance_calculator.dart';
+import 'logic/game_replay.dart';
+import 'models/at_bat_result.dart';
+import 'models/base_runners.dart';
+import 'models/game_event.dart';
+import 'models/game_state.dart';
+import 'models/player.dart';
+import 'models/resolved_event.dart';
 
 void main() {
   runApp(const BaseballScoreApp());
@@ -20,262 +29,118 @@ class BaseballScoreApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF4F6F4),
         useMaterial3: true,
       ),
-      home: const MainScreen(),
+      home: const GameListScreen(),
     );
   }
 }
 
-enum AtBatResult {
-  singleHit('単打', '安', true, true, 1),
-  doubleHit('二塁打', '２', true, true, 2),
-  tripleHit('三塁打', '３', true, true, 3),
-  homeRun('本塁打', '本', true, true, 4),
-  walk('四球', '四球', false, false, 0),
-  hitByPitch('死球', '死球', false, false, 0),
-  error('敵失', '失', true, false, 0),
-  strikeout('三振', '三振', true, false, 0),
-  strikeoutSafe('振逃出塁', '振逃', true, false, 0),
-  groundOut('ゴロ', 'ゴ', true, false, 0),
-  groundAdvance('ゴロ進塁', 'ゴ進', true, false, 0),
-  flyOut('飛球', '飛', true, false, 0),
-  foulFlyOut('邪飛', '邪飛', true, false, 0),
-  flyAdvance('飛球進塁', '飛進', true, false, 0),
-  sacrificeHit('犠打', '犠打', false, false, 0),
-  sacrificeFly('犠飛', '犠飛', false, false, 0),
-  doublePlay('併殺打', '併殺', true, false, 0);
-
-  final String label;
-  final String shortLabel;
-  final bool isAtBat;
-  final bool isHit;
-  final int bases;
-  const AtBatResult(
-    this.label,
-    this.shortLabel,
-    this.isAtBat,
-    this.isHit,
-    this.bases,
-  );
-}
-
-class BaseRunners {
-  String? runner1st;
-  String? runner2nd;
-  String? runner3rd;
-
-  BaseRunners({this.runner1st, this.runner2nd, this.runner3rd});
-
-  bool get isEmpty =>
-      runner1st == null && runner2nd == null && runner3rd == null;
-
-  BaseRunners copy() => BaseRunners(
-    runner1st: runner1st,
-    runner2nd: runner2nd,
-    runner3rd: runner3rd,
-  );
-
-  void removeRunner(String id) {
-    if (runner1st == id) {
-      runner1st = null;
-    }
-    if (runner2nd == id) {
-      runner2nd = null;
-    }
-    if (runner3rd == id) {
-      runner3rd = null;
-    }
-  }
-}
-
-class PlateEvent {
-  int eventId;
-  final String batterId;
-  final int batterIndex;
-  final String pitcherId;
-  final int inning;
-  final bool isTop;
-  final int cycleIndex;
-  AtBatResult result;
-  String direction;
-  int rbi;
-  int runs;
-  int earnedRuns;
-  String? errorPlayerId;
-  BaseRunners runnersBefore;
-  int outsBefore;
-  BaseRunners runnersAfter;
-  int outsAfter;
-  bool causedInningEnd;
-
-  PlateEvent({
-    required this.eventId,
-    required this.batterId,
-    required this.batterIndex,
-    required this.pitcherId,
-    required this.inning,
-    required this.isTop,
-    required this.cycleIndex,
-    required this.result,
-    required this.direction,
-    required this.rbi,
-    required this.runs,
-    this.earnedRuns = 0,
-    this.errorPlayerId,
-    required this.runnersBefore,
-    required this.outsBefore,
-    required this.runnersAfter,
-    required this.outsAfter,
-    required this.causedInningEnd,
-  });
-
-  String get displayShortLabel {
-    if (result == AtBatResult.singleHit ||
-        result == AtBatResult.doubleHit ||
-        result == AtBatResult.tripleHit) {
-      return '$direction${result.shortLabel}';
-    }
-    if (result == AtBatResult.groundOut ||
-        result == AtBatResult.flyOut ||
-        result == AtBatResult.foulFlyOut) {
-      return '$direction${result.shortLabel}';
-    }
-    return result.shortLabel;
-  }
-}
-
-class PitcherStats {
-  int outsRecorded = 0;
-  int battersFaced = 0;
-  int hitsAllowed = 0;
-  int hrAllowed = 0;
-  int strikeouts = 0;
-  int walks = 0;
-  int hitByPitch = 0;
-  int runsAllowed = 0;
-  int earnedRuns = 0;
-
-  String get inningsPitched {
-    int full = outsRecorded ~/ 3;
-    int rem = outsRecorded % 3;
-    if (rem == 0) {
-      return '$full';
-    }
-    return '$full $rem/3';
-  }
-
-  String get era {
-    if (outsRecorded == 0) {
-      return '.---';
-    }
-    double innings = outsRecorded / 3.0;
-    double val = (earnedRuns * 7.0) / innings;
-    return val.toStringAsFixed(2);
-  }
-}
-
-class Player {
-  String id;
-  String name;
-  String position;
-  int runsScored;
-  int errorsCommitted;
-  List<PlateEvent> appearances;
-  List<PlateEvent> pitchingEvents;
-
-  Player({
-    required this.id,
-    required this.name,
-    required this.position,
-    this.runsScored = 0,
-    this.errorsCommitted = 0,
-    List<PlateEvent>? appearances,
-    List<PlateEvent>? pitchingEvents,
-  }) : appearances = appearances ?? [],
-       pitchingEvents = pitchingEvents ?? [];
-
-  int get pa => appearances.length;
-  int get ab => appearances.where((p) => p.result.isAtBat).length;
-  int get hits => appearances.where((p) => p.result.isHit).length;
-  int get doubles =>
-      appearances.where((p) => p.result == AtBatResult.doubleHit).length;
-  int get triples =>
-      appearances.where((p) => p.result == AtBatResult.tripleHit).length;
-  int get hr =>
-      appearances.where((p) => p.result == AtBatResult.homeRun).length;
-  int get rbi => appearances.fold(0, (sum, p) => sum + p.rbi);
-  int get bb => appearances.where((p) => p.result == AtBatResult.walk).length;
-  int get hbp =>
-      appearances.where((p) => p.result == AtBatResult.hitByPitch).length;
-  int get so => appearances
-      .where(
-        (p) =>
-            p.result == AtBatResult.strikeout ||
-            p.result == AtBatResult.strikeoutSafe,
-      )
-      .length;
-  int get roe => appearances
-      .where(
-        (p) =>
-            p.result == AtBatResult.error ||
-            p.result == AtBatResult.strikeoutSafe,
-      )
-      .length;
-  int get sh =>
-      appearances.where((p) => p.result == AtBatResult.sacrificeHit).length;
-  int get sf =>
-      appearances.where((p) => p.result == AtBatResult.sacrificeFly).length;
-
-  String get battingAverage {
-    if (ab == 0) {
-      return '.---';
-    }
-    double avg = hits / ab;
-    if (avg >= 1.0) {
-      return '1.000';
-    }
-    return avg.toStringAsFixed(3).substring(1);
-  }
-
-  PitcherStats get pitcherStats {
-    final stats = PitcherStats();
-    for (var ev in pitchingEvents) {
-      stats.battersFaced++;
-      int outsInPlay = ev.outsAfter - ev.outsBefore;
-      if (outsInPlay > 0) {
-        stats.outsRecorded += outsInPlay;
-      }
-
-      if (ev.result.isHit) {
-        stats.hitsAllowed++;
-      }
-      if (ev.result == AtBatResult.homeRun) {
-        stats.hrAllowed++;
-      }
-      if (ev.result == AtBatResult.strikeout ||
-          ev.result == AtBatResult.strikeoutSafe) {
-        stats.strikeouts++;
-      }
-      if (ev.result == AtBatResult.walk) {
-        stats.walks++;
-      }
-      if (ev.result == AtBatResult.hitByPitch) {
-        stats.hitByPitch++;
-      }
-      stats.runsAllowed += ev.runs;
-      stats.earnedRuns += ev.earnedRuns;
-    }
-    return stats;
-  }
-}
-
-class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+// ==========================================
+// 試合一覧・管理画面 (ホーム画面)
+// ==========================================
+class GameListScreen extends StatefulWidget {
+  const GameListScreen({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  State<GameListScreen> createState() => _GameListScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _GameListScreenState extends State<GameListScreen> {
+  final List<Map<String, dynamic>> _savedGames = [];
+
+  void _createNewGame() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ScoreInputScreen(
+          gameId: DateTime.now().millisecondsSinceEpoch.toString(),
+          onSave: (gameData) {
+            setState(() {
+              _savedGames.insert(0, gameData);
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          '草野球スコア - 試合一覧',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: const Color(0xFF1B5E20),
+        foregroundColor: Colors.white,
+      ),
+      body: _savedGames.isEmpty
+          ? const Center(
+              child: Text(
+                '保存された試合がありません。\n右下のボタンから新規試合を作成してください。',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
+          : ListView.builder(
+              itemCount: _savedGames.length,
+              itemBuilder: (context, index) {
+                final game = _savedGames[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  child: ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Colors.green,
+                      child: Icon(Icons.sports_baseball, color: Colors.white),
+                    ),
+                    title: Text(
+                      '${game['topTeam']} vs ${game['bottomTeam']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      '${game['date']} | 結果: ${game['topScore']} - ${game['bottomScore']}',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('過去の試合データの読み込みは次回以降の実装で対応します！'),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _createNewGame,
+        backgroundColor: const Color(0xFF1B5E20),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('新規試合'),
+      ),
+    );
+  }
+}
+
+class ScoreInputScreen extends StatefulWidget {
+  final String gameId;
+  final Function(Map<String, dynamic>) onSave;
+
+  const ScoreInputScreen({
+    super.key,
+    required this.gameId,
+    required this.onSave,
+  });
+
+  @override
+  State<ScoreInputScreen> createState() => _ScoreInputScreenState();
+}
+
+class _ScoreInputScreenState extends State<ScoreInputScreen> {
   int _selectedTabIndex = 0;
 
   String teamNameTop = '自チーム (先)';
@@ -285,15 +150,14 @@ class _MainScreenState extends State<MainScreen> {
   int inning = 1;
   bool isTop = true;
 
-  late List<int> scoresTop;
-  late List<int> scoresBottom;
-  int errorsTop = 0;
-  int errorsBottom = 0;
-
   int outs = 0;
-  BaseRunners runners = BaseRunners();
+  BaseRunners runners = BaseRunners.empty;
 
   int batterIndexTop = 0;
+  int batterIndexBottom = 0;
+  int cycleIndexTop = 0;
+  int cycleIndexBottom = 0;
+
   List<Player> playersTop = [
     Player(id: 't1', name: '佐藤', position: '遊'),
     Player(id: 't2', name: '鈴木', position: '中'),
@@ -306,9 +170,8 @@ class _MainScreenState extends State<MainScreen> {
     Player(id: 't9', name: '小林', position: '投'),
   ];
 
-  int batterIndexBottom = 0;
   List<Player> playersBottom = [
-    Player(id: 'b1', name: '大谷', position: '指'),
+    Player(id: 'b1', name: '大谷', position: '中'),
     Player(id: 'b2', name: 'イチロー', position: '右'),
     Player(id: 'b3', name: '松井', position: '左'),
     Player(id: 'b4', name: '王', position: '一'),
@@ -322,25 +185,30 @@ class _MainScreenState extends State<MainScreen> {
   late String currentPitcherIdTop;
   late String currentPitcherIdBottom;
 
-  final List<PlateEvent> _gameEvents = [];
-  int _currentCycle = 0;
+  /// 記録された全イベント。この配列だけが試合の「事実」であり、
+  /// スコアも個人成績もすべて [_state] を通じてここから導出される。
+  final List<GameEvent> _gameEvents = [];
+
+  /// 次に発行するイベントID。
+  ///
+  /// 途中のイベントを削除してもIDが重複しないよう、単調増加のカウンタで管理する。
+  int _nextEventId = 1;
+
+  /// [_gameEvents] を再生した結果。
+  GameState _state = GameState.initial();
+
   int _scoreTabTeamIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _initInnings(totalInningsConfig);
     currentPitcherIdTop = playersTop
         .firstWhere((p) => p.position == '投', orElse: () => playersTop.last)
         .id;
     currentPitcherIdBottom = playersBottom
         .firstWhere((p) => p.position == '投', orElse: () => playersBottom.last)
         .id;
-  }
-
-  void _initInnings(int count) {
-    scoresTop = List.filled(count, 0);
-    scoresBottom = List.filled(count, 0);
+    _rebuildGameState();
   }
 
   List<Player> get currentBatters => isTop ? playersTop : playersBottom;
@@ -360,36 +228,66 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  int get totalHitsTop => playersTop.fold(0, (sum, b) => sum + b.hits);
-  int get totalHitsBottom => playersBottom.fold(0, (sum, b) => sum + b.hits);
-  int get totalScoreTop => scoresTop.fold(0, (a, b) => a + b);
-  int get totalScoreBottom => scoresBottom.fold(0, (a, b) => a + b);
+  int get _currentCycle => isTop ? cycleIndexTop : cycleIndexBottom;
+  set _currentCycle(int val) {
+    if (isTop) {
+      cycleIndexTop = val;
+    } else {
+      cycleIndexBottom = val;
+    }
+  }
+
+  // --- 以下は再生結果 [_state] から導出される読み取り専用の値 ---
+
+  List<int> get scoresTop => _state.scoresTop;
+  List<int> get scoresBottom => _state.scoresBottom;
+  int get errorsTop => _state.errorsTop;
+  int get errorsBottom => _state.errorsBottom;
+  int get totalScoreTop => _state.totalScoreTop;
+  int get totalScoreBottom => _state.totalScoreBottom;
+
+  int get totalHitsTop => playersTop.fold(0, (sum, b) => sum + b.stats.hits);
+  int get totalHitsBottom =>
+      playersBottom.fold(0, (sum, b) => sum + b.stats.hits);
+
+  Iterable<Player> get _allPlayers => [...playersTop, ...playersBottom];
 
   Player? _findPlayer(String? id) {
     if (id == null) {
       return null;
     }
-    try {
-      return [...playersTop, ...playersBottom].firstWhere((b) => b.id == id);
-    } catch (_) {
-      return null;
+    for (final p in playersTop) {
+      if (p.id == id) {
+        return p;
+      }
     }
+    for (final p in playersBottom) {
+      if (p.id == id) {
+        return p;
+      }
+    }
+    return null;
   }
 
   int get maxCycleInCurrentInning {
-    final evs = _gameEvents
-        .where((e) => e.inning == inning && e.isTop == isTop)
-        .toList();
+    final evs = _state.events.where(
+      (e) => e.inning == inning && e.isTop == isTop && !e.isBaserunningEvent,
+    );
     if (evs.isEmpty) {
       return 0;
     }
     return evs.map((e) => e.cycleIndex).reduce((a, b) => a > b ? a : b);
   }
 
-  PlateEvent? get activeEvent {
-    return _gameEvents
+  /// 現在選択中の打席（回・表裏・巡目・打順が一致するイベント）。
+  ///
+  /// 既に結果が入力済みの打席を選び直しているときは非 null になり、
+  /// このとき新たな入力は「上書き」として扱われる。
+  ResolvedEvent? get activeEvent {
+    return _state.events
         .where(
           (e) =>
+              !e.isBaserunningEvent &&
               e.inning == inning &&
               e.isTop == isTop &&
               e.cycleIndex == _currentCycle &&
@@ -419,28 +317,6 @@ class _MainScreenState extends State<MainScreen> {
         duration: const Duration(seconds: 3),
       ),
     );
-  }
-
-  void _ensureInningCapacity(int inn) {
-    while (scoresTop.length < inn) {
-      scoresTop.add(0);
-      scoresBottom.add(0);
-    }
-  }
-
-  void _addRuns(int runs) {
-    if (runs <= 0) {
-      return;
-    }
-    int idx = inning - 1;
-    _ensureInningCapacity(inning);
-    setState(() {
-      if (isTop) {
-        scoresTop[idx] += runs;
-      } else {
-        scoresBottom[idx] += runs;
-      }
-    });
   }
 
   void _promptChangePitcherDialog() {
@@ -505,233 +381,41 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  /// イベント列を再生し、スコア・個人成績・盤面表示を作り直す。
+  ///
+  /// 集計ロジックそのものは `replayGame()` に切り出してあり、ここでは
+  /// その結果を画面の状態へ反映するだけにしている。
   void _rebuildGameState() {
-    _ensureInningCapacity(inning);
-    for (int i = 0; i < scoresTop.length; i++) {
-      scoresTop[i] = 0;
-      scoresBottom[i] = 0;
+    _state = replayGame(
+      events: _gameEvents,
+      minInnings: totalInningsConfig > inning ? totalInningsConfig : inning,
+    );
+    for (final player in _allPlayers) {
+      player.stats = _state.statsOf(player.id);
     }
-    errorsTop = 0;
-    errorsBottom = 0;
-
-    for (var b in [...playersTop, ...playersBottom]) {
-      b.runsScored = 0;
-      b.errorsCommitted = 0;
-      b.appearances.clear();
-      b.pitchingEvents.clear();
-    }
-
-    _gameEvents.sort((a, b) {
-      if (a.inning != b.inning) {
-        return a.inning.compareTo(b.inning);
-      }
-      if (a.isTop != b.isTop) {
-        return a.isTop ? -1 : 1;
-      }
-      if (a.cycleIndex != b.cycleIndex) {
-        return a.cycleIndex.compareTo(b.cycleIndex);
-      }
-      return a.batterIndex.compareTo(b.batterIndex);
-    });
-
-    BaseRunners simRunners = BaseRunners();
-    int simOuts = 0;
-    int curInn = -1;
-    bool curTop = true;
-
-    for (int i = 0; i < _gameEvents.length; i++) {
-      final ev = _gameEvents[i];
-      ev.eventId = i + 1;
-
-      if (ev.inning != curInn || ev.isTop != curTop) {
-        curInn = ev.inning;
-        curTop = ev.isTop;
-        simRunners = BaseRunners();
-        simOuts = 0;
-      }
-
-      simRunners.removeRunner(ev.batterId);
-
-      ev.runnersBefore = simRunners.copy();
-      ev.outsBefore = simOuts;
-
-      BaseRunners nextRunners = simRunners.copy();
-      int runs = 0;
-      int rbi = 0;
-      int nextOuts = simOuts;
-
-      void scoreRunner(String? runnerId) {
-        if (runnerId != null) {
-          runs++;
-          rbi++;
-          final r = _findPlayer(runnerId);
-          if (r != null) {
-            r.runsScored++;
-          }
-        }
-      }
-
-      switch (ev.result) {
-        case AtBatResult.singleHit:
-          scoreRunner(simRunners.runner3rd);
-          nextRunners.runner3rd = simRunners.runner2nd;
-          nextRunners.runner2nd = simRunners.runner1st;
-          nextRunners.runner1st = ev.batterId;
-          break;
-
-        case AtBatResult.doubleHit:
-          scoreRunner(simRunners.runner3rd);
-          scoreRunner(simRunners.runner2nd);
-          nextRunners.runner3rd = simRunners.runner1st;
-          nextRunners.runner2nd = ev.batterId;
-          nextRunners.runner1st = null;
-          break;
-
-        case AtBatResult.tripleHit:
-          scoreRunner(simRunners.runner3rd);
-          scoreRunner(simRunners.runner2nd);
-          scoreRunner(simRunners.runner1st);
-          nextRunners.runner3rd = ev.batterId;
-          nextRunners.runner2nd = null;
-          nextRunners.runner1st = null;
-          break;
-
-        case AtBatResult.homeRun:
-          scoreRunner(simRunners.runner3rd);
-          scoreRunner(simRunners.runner2nd);
-          scoreRunner(simRunners.runner1st);
-          runs++;
-          rbi++;
-          final b = _findPlayer(ev.batterId);
-          if (b != null) {
-            b.runsScored++;
-          }
-          nextRunners = BaseRunners();
-          break;
-
-        case AtBatResult.walk:
-        case AtBatResult.hitByPitch:
-        case AtBatResult.strikeoutSafe:
-          if (simRunners.runner1st != null &&
-              simRunners.runner2nd != null &&
-              simRunners.runner3rd != null) {
-            scoreRunner(simRunners.runner3rd);
-          }
-          if (simRunners.runner1st != null && simRunners.runner2nd != null) {
-            nextRunners.runner3rd = simRunners.runner2nd;
-          }
-          if (simRunners.runner1st != null) {
-            nextRunners.runner2nd = simRunners.runner1st;
-          }
-          nextRunners.runner1st = ev.batterId;
-          break;
-
-        case AtBatResult.error:
-          scoreRunner(simRunners.runner3rd);
-          nextRunners.runner3rd = simRunners.runner2nd;
-          nextRunners.runner2nd = simRunners.runner1st;
-          nextRunners.runner1st = ev.batterId;
-          break;
-
-        case AtBatResult.strikeout:
-        case AtBatResult.groundOut:
-        case AtBatResult.flyOut:
-        case AtBatResult.foulFlyOut:
-          nextOuts++;
-          break;
-
-        case AtBatResult.doublePlay:
-          nextOuts += 2;
-          nextRunners.runner1st = null;
-          break;
-
-        case AtBatResult.groundAdvance:
-        case AtBatResult.flyAdvance:
-        case AtBatResult.sacrificeHit:
-        case AtBatResult.sacrificeFly:
-          runs = ev.runs;
-          rbi = ev.rbi;
-          nextOuts = ev.outsAfter;
-          nextRunners = ev.runnersAfter.copy();
-          break;
-      }
-
-      ev.runs = runs;
-      ev.rbi = rbi;
-      if (ev.result != AtBatResult.error) {
-        ev.earnedRuns = runs;
-      }
-
-      ev.runnersAfter = nextRunners.copy();
-      ev.outsAfter = nextOuts;
-      ev.causedInningEnd = nextOuts >= 3;
-
-      simRunners = nextRunners.copy();
-      simOuts = nextOuts;
-
-      final b = _findPlayer(ev.batterId);
-      if (b != null) {
-        b.appearances.add(ev);
-      }
-
-      final p = _findPlayer(ev.pitcherId);
-      if (p != null) {
-        p.pitchingEvents.add(ev);
-      }
-
-      int innIdx = ev.inning - 1;
-      while (scoresTop.length <= innIdx) {
-        scoresTop.add(0);
-        scoresBottom.add(0);
-      }
-
-      if (ev.isTop) {
-        scoresTop[innIdx] += ev.runs;
-      } else {
-        scoresBottom[innIdx] += ev.runs;
-      }
-
-      if (ev.errorPlayerId != null) {
-        final defB = _findPlayer(ev.errorPlayerId);
-        if (defB != null) {
-          defB.errorsCommitted++;
-        }
-        if (ev.isTop) {
-          errorsBottom++;
-        } else {
-          errorsTop++;
-        }
-      }
-    }
-
     _syncCurrentView();
   }
 
+  /// 盤面（走者・アウトカウント）の表示を、選択中の打席に合わせて更新する。
   void _syncCurrentView() {
-    final curEv = activeEvent;
-    if (curEv != null) {
-      runners = curEv.runnersBefore.copy();
-      outs = curEv.outsBefore;
+    final current = activeEvent;
+    if (current != null) {
+      // 入力済みの打席を選び直している場合は、その打席の開始時点を表示する。
+      runners = current.runnersBefore;
+      outs = current.outsBefore;
       return;
     }
 
-    final prevEvents = _gameEvents
-        .where(
-          (e) =>
-              e.inning == inning &&
-              e.isTop == isTop &&
-              (e.cycleIndex < _currentCycle ||
-                  (e.cycleIndex == _currentCycle &&
-                      e.batterIndex < currentBatterIndex)),
-        )
-        .toList();
-
-    if (prevEvents.isNotEmpty) {
-      final last = prevEvents.last;
-      runners = last.runnersAfter.copy();
-      outs = last.outsAfter;
+    final inningEvents = _state.eventsInHalfInning(
+      inning,
+      isTop,
+      includeIgnored: false,
+    );
+    if (inningEvents.isNotEmpty) {
+      runners = inningEvents.last.runnersAfter;
+      outs = inningEvents.last.outsAfter;
     } else {
-      runners = BaseRunners();
+      runners = BaseRunners.empty;
       outs = 0;
     }
   }
@@ -744,10 +428,25 @@ class _MainScreenState extends State<MainScreen> {
       final last = _gameEvents.removeLast();
       inning = last.inning;
       isTop = last.isTop;
-      currentBatterIndex = last.batterIndex;
+      if (last.batterIndex >= 0 && !last.isBaserunningEvent) {
+        currentBatterIndex = last.batterIndex;
+      }
       _currentCycle = last.cycleIndex;
       _rebuildGameState();
     });
+  }
+
+  void _deleteEvent(int eventId) {
+    setState(() {
+      _gameEvents.removeWhere((e) => e.eventId == eventId);
+      _rebuildGameState();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('イベントを削除し、成績を再計算しました。'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   void _deleteCurrentPlateEvent() {
@@ -755,30 +454,19 @@ class _MainScreenState extends State<MainScreen> {
     if (ev == null) {
       return;
     }
-
-    setState(() {
-      _gameEvents.removeWhere((e) => e.eventId == ev.eventId);
-      _rebuildGameState();
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('打席を削除し、スコアを再計算しました。'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    _deleteEvent(ev.eventId);
   }
 
   void _changeInning() {
     outs = 0;
-    runners = BaseRunners();
+    runners = BaseRunners.empty;
     if (!isTop) {
       inning++;
-      _ensureInningCapacity(inning);
     }
     isTop = !isTop;
     _currentCycle = 0;
     currentBatterIndex = 0;
+    _rebuildGameState();
   }
 
   void _nextBatter() {
@@ -789,13 +477,16 @@ class _MainScreenState extends State<MainScreen> {
     }
     currentBatterIndex = nextIdx;
     _syncCurrentView();
+
+    if (outs >= 3) {
+      _changeInning();
+    }
   }
 
   void _jumpToInning(int targetInn, bool targetIsTop) {
     setState(() {
       inning = targetInn;
       isTop = targetIsTop;
-      _ensureInningCapacity(inning);
       _currentCycle = 0;
       currentBatterIndex = 0;
       _rebuildGameState();
@@ -809,16 +500,907 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
+  /// 走塁イベント（盗塁・WP・PB・走塁死など）を記録する。
+  ///
+  /// [runnerId] にはイベントの主体となる走者を渡す。盗塁数はこの走者に記録される。
+  void _recordBaserunningEvent(
+    String desc,
+    BaseRunners newRunners, {
+    bool isSteal = false,
+    String? batterId,
+    String? runnerId,
+    int runs = 0,
+    List<String>? scoredIds,
+  }) {
+    setState(() {
+      _gameEvents.add(
+        GameEvent(
+          eventId: _nextEventId++,
+          inning: inning,
+          isTop: isTop,
+          description: desc,
+          batterId: batterId,
+          batterIndex: currentBatterIndex,
+          pitcherId: activePitcher.id,
+          cycleIndex: _currentCycle,
+          runs: runs,
+          earnedRuns: runs,
+          scoredPlayerIds: scoredIds,
+          runnerId: runnerId,
+          runnersAfter: newRunners,
+          isBaserunningEvent: true,
+          isSteal: isSteal,
+        ),
+      );
+      _rebuildGameState();
+      _changeInningIfCompleted();
+    });
+  }
+
+  /// 打席結果を、標準的な進塁ルールにしたがって記録する。
+  void _recordOrUpdateAtBat(
+    AtBatResult result, {
+    required String direction,
+    String? errorPlayerId,
+  }) {
+    final batter = currentBatters[currentBatterIndex];
+    final advance = calculateDefaultAdvance(
+      result: result,
+      runners: runners,
+      batterId: batter.id,
+    );
+    _commitAtBat(
+      result: result,
+      direction: direction,
+      runnersAfter: advance.runners,
+      runs: advance.runs,
+      rbi: advance.rbi,
+      scoredPlayerIds: advance.scoredPlayerIds,
+      errorPlayerId: errorPlayerId,
+    );
+  }
+
+  /// 走者ごとの行き先をダイアログで指定した打席結果を記録する。
+  void _applyCustomHitResult(
+    AtBatResult result,
+    String direction,
+    BaseRunners customRunners,
+    int runs,
+    int rbi,
+    List<String> scoredIds, {
+    String? errorPlayerId,
+  }) {
+    _commitAtBat(
+      result: result,
+      direction: direction,
+      runnersAfter: customRunners,
+      runs: runs,
+      rbi: rbi,
+      scoredPlayerIds: scoredIds,
+      errorPlayerId: errorPlayerId,
+    );
+  }
+
+  /// 打席結果をイベントとして確定させる。
+  ///
+  /// 現在の打席にすでに結果が入力されている場合は、同じイベントIDのまま
+  /// 新しい内容で差し替える（＝上書き入力）。
+  void _commitAtBat({
+    required AtBatResult result,
+    required String direction,
+    required BaseRunners runnersAfter,
+    required int runs,
+    required int rbi,
+    required List<String> scoredPlayerIds,
+    String? errorPlayerId,
+  }) {
+    setState(() {
+      final batter = currentBatters[currentBatterIndex];
+      final target = activeEvent;
+      final isUpdate = target != null;
+
+      final event = GameEvent(
+        eventId: isUpdate ? target.eventId : _nextEventId++,
+        inning: inning,
+        isTop: isTop,
+        description: '',
+        batterId: batter.id,
+        batterIndex: currentBatterIndex,
+        pitcherId: isUpdate ? target.pitcherId : activePitcher.id,
+        cycleIndex: _currentCycle,
+        result: result,
+        direction: direction,
+        errorPlayerId: errorPlayerId,
+        rbi: rbi,
+        runs: runs,
+        // 失策がからむ得点は自責点に含めない。
+        earnedRuns: (result == AtBatResult.error || errorPlayerId != null)
+            ? 0
+            : runs,
+        scoredPlayerIds: scoredPlayerIds,
+        runnersAfter: runnersAfter,
+      );
+
+      // 説明文は displayShortLabel を使うため、確定後のイベントから組み立てる。
+      final described = _withDescription(
+        event,
+        '${currentBatterIndex + 1}番 ${batter.name}: ${event.displayShortLabel}',
+      );
+
+      if (isUpdate) {
+        final index = _gameEvents.indexWhere((e) => e.eventId == event.eventId);
+        _gameEvents[index] = described;
+      } else {
+        _gameEvents.add(described);
+      }
+
+      _rebuildGameState();
+
+      if (!_changeInningIfCompleted() && !isUpdate) {
+        _nextBatter();
+      }
+    });
+  }
+
+  /// [event] の説明文だけを差し替えた新しいイベントを返す。
+  GameEvent _withDescription(GameEvent event, String description) => GameEvent(
+    eventId: event.eventId,
+    inning: event.inning,
+    isTop: event.isTop,
+    description: description,
+    batterId: event.batterId,
+    batterIndex: event.batterIndex,
+    pitcherId: event.pitcherId,
+    cycleIndex: event.cycleIndex,
+    result: event.result,
+    direction: event.direction,
+    rbi: event.rbi,
+    runs: event.runs,
+    earnedRuns: event.earnedRuns,
+    scoredPlayerIds: event.scoredPlayerIds,
+    errorPlayerId: event.errorPlayerId,
+    runnerId: event.runnerId,
+    runnersAfter: event.runnersAfter,
+    isBaserunningEvent: event.isBaserunningEvent,
+    isSteal: event.isSteal,
+  );
+
+  /// 現在の半イニングが3アウトに達していれば攻守交代する。
+  ///
+  /// 交代した場合は true を返す。
+  bool _changeInningIfCompleted() {
+    final events = _state.eventsInHalfInning(
+      inning,
+      isTop,
+      includeIgnored: false,
+    );
+    if (events.isEmpty || events.last.outsAfter < 3) {
+      return false;
+    }
+    _changeInning();
+    return true;
+  }
+
+  // =====================================
+  // シェア用テキストの生成処理
+  // =====================================
+  String _generateShareText() {
+    int maxInn = scoresTop.length;
+    String header = '   ';
+    for (int i = 1; i <= maxInn; i++) {
+      header += '$i ';
+    }
+    header += '| R H E';
+
+    String topNameShort = teamNameTop.length > 2
+        ? teamNameTop.substring(0, 2)
+        : teamNameTop;
+    String topRow = '${topNameShort.padRight(2, ' ')} ';
+    for (int s in scoresTop) {
+      topRow += '$s ';
+    }
+    topRow += '| $totalScoreTop $totalHitsTop $errorsTop';
+
+    String btmNameShort = teamNameBottom.length > 2
+        ? teamNameBottom.substring(0, 2)
+        : teamNameBottom;
+    String btmRow = '${btmNameShort.padRight(2, ' ')} ';
+    for (int s in scoresBottom) {
+      btmRow += '$s ';
+    }
+    btmRow += '| $totalScoreBottom $totalHitsBottom $errorsBottom';
+
+    StringBuffer sb = StringBuffer();
+    sb.writeln('⚾ 試合スコア速報 ⚾');
+    sb.writeln(
+      '$teamNameTop $totalScoreTop - $totalScoreBottom $teamNameBottom\n',
+    );
+    sb.writeln(header);
+    sb.writeln(topRow);
+    sb.writeln(btmRow);
+    sb.writeln('');
+    sb.writeln('#草野球スコア #野球');
+    return sb.toString();
+  }
+
+  void _shareResult() {
+    final text = _generateShareText();
+    Share.share(text);
+  }
+
+  void _saveAndExit() {
+    widget.onSave({
+      'id': widget.gameId,
+      'date': DateTime.now().toString().substring(0, 10),
+      'topTeam': teamNameTop,
+      'bottomTeam': teamNameBottom,
+      'topScore': totalScoreTop,
+      'bottomScore': totalScoreBottom,
+    });
+    Navigator.pop(context);
+  }
+
+  void _promptDoublePlayRoute({String? errorPlayerId}) {
+    List<String> route = [];
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDState) => AlertDialog(
+          title: const Text('併殺の経路を選択'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                width: double.infinity,
+                child: Text(
+                  route.isEmpty ? "(未選択)" : route.join(" → "),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: ['投', '捕', '一', '二', '三', '遊', '左', '中', '右'].map((
+                  pos,
+                ) {
+                  return ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade50,
+                      foregroundColor: Colors.red.shade900,
+                    ),
+                    onPressed: () {
+                      setDState(() {
+                        route.add(pos);
+                      });
+                    },
+                    child: Text(pos),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 10),
+              TextButton.icon(
+                onPressed: () {
+                  setDState(() {
+                    route.clear();
+                  });
+                },
+                icon: const Icon(Icons.clear, size: 16),
+                label: const Text('クリア'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('キャンセル'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                String direction = route.join('→');
+                if (direction.isEmpty) {
+                  direction = '併殺';
+                }
+                _recordOrUpdateAtBat(
+                  AtBatResult.doublePlay,
+                  direction: direction,
+                  errorPlayerId: errorPlayerId,
+                );
+              },
+              child: const Text('確定'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _promptWalkOrErrorRunnersDialog(
+    AtBatResult result, {
+    String? errorPlayerId,
+    String direction = '',
+  }) {
+    if (outs >= 3 && activeEvent == null) {
+      _showRuleWarning('⚠️ すでに3アウト（チェンジ）状態です。');
+      return;
+    }
+
+    String batterId = currentBatters[currentBatterIndex].id;
+
+    if (runners.isEmpty) {
+      _recordOrUpdateAtBat(
+        result,
+        direction: direction,
+        errorPlayerId: errorPlayerId,
+      );
+      return;
+    }
+
+    int r3Choice = 1;
+    int r2Choice = 2;
+    int r1Choice = 1;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDState) => AlertDialog(
+          title: Text('${result.label}時の走者・打者の進塁確認'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '打者 [${currentBatters[currentBatterIndex].name}] の${result.label}です。各走者および打者の進塁先を選んでください：',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                const SizedBox(height: 10),
+                if (runners.runner3rd != null)
+                  _runnerChoiceTile(
+                    '3塁: ${_findPlayer(runners.runner3rd)?.name}',
+                    ['本塁生還 (得点 ※打点なし)', '3塁そのまま'],
+                    (val) {
+                      setDState(() {
+                        r3Choice = val;
+                      });
+                    },
+                    r3Choice,
+                  ),
+                if (runners.runner2nd != null)
+                  _runnerChoiceTile(
+                    '2塁: ${_findPlayer(runners.runner2nd)?.name}',
+                    ['3塁へ進塁', '本塁生還 (得点 ※打点なし)', '2塁そのまま'],
+                    (val) {
+                      setDState(() {
+                        r2Choice = val;
+                      });
+                    },
+                    r2Choice,
+                  ),
+                if (runners.runner1st != null)
+                  _runnerChoiceTile(
+                    '1塁: ${_findPlayer(runners.runner1st)?.name}',
+                    ['2塁へ進塁', '1塁そのまま'],
+                    (val) {
+                      setDState(() {
+                        r1Choice = val;
+                      });
+                    },
+                    r1Choice,
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+              },
+              child: const Text('キャンセル'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1B5E20),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+
+                int calcRuns = 0;
+                List<String> scoredIds = [];
+                String? final3rd;
+                String? final2nd;
+                String? final1st = batterId;
+
+                if (runners.runner1st != null) {
+                  if (r1Choice == 0) {
+                    final2nd = runners.runner1st;
+                  } else {
+                    final1st = runners.runner1st;
+                  }
+                }
+
+                if (runners.runner2nd != null) {
+                  if (r2Choice == 0) {
+                    final3rd = runners.runner2nd;
+                  } else if (r2Choice == 1) {
+                    calcRuns++;
+                    scoredIds.add(runners.runner2nd!);
+                  } else {
+                    if (final2nd == null) {
+                      final2nd = runners.runner2nd;
+                    } else {
+                      final3rd = runners.runner2nd;
+                    }
+                  }
+                }
+
+                if (runners.runner3rd != null) {
+                  if (r3Choice == 0) {
+                    calcRuns++;
+                    scoredIds.add(runners.runner3rd!);
+                  } else {
+                    if (final3rd == null) {
+                      final3rd = runners.runner3rd;
+                    } else if (final2nd == null) {
+                      final2nd = final3rd;
+                      final3rd = runners.runner3rd;
+                    } else {
+                      final1st = final2nd;
+                      final2nd = final3rd;
+                      final3rd = runners.runner3rd;
+                    }
+                  }
+                }
+
+                BaseRunners customRunners = BaseRunners(
+                  runner1st: final1st,
+                  runner2nd: final2nd,
+                  runner3rd: final3rd,
+                );
+                _applyCustomHitResult(
+                  result,
+                  direction,
+                  customRunners,
+                  calcRuns,
+                  0,
+                  scoredIds,
+                  errorPlayerId: errorPlayerId,
+                );
+              },
+              child: const Text('確定'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _promptHitWithRunnersDialog(AtBatResult result, String direction) {
+    if (outs >= 3 && activeEvent == null) {
+      _showRuleWarning('⚠️ すでに3アウト（チェンジ）状態です。');
+      return;
+    }
+
+    if (result == AtBatResult.homeRun) {
+      _recordOrUpdateAtBat(result, direction: direction);
+      return;
+    }
+
+    if (runners.isEmpty) {
+      if (result == AtBatResult.error) {
+        _promptErrorPlayerSelectionAndRecord(
+          result,
+          direction,
+          BaseRunners(runner1st: currentBatters[currentBatterIndex].id),
+          0,
+          0,
+          [],
+        );
+      } else {
+        _recordOrUpdateAtBat(result, direction: direction);
+      }
+      return;
+    }
+
+    String batterId = currentBatters[currentBatterIndex].id;
+    int r3Choice = 0;
+    int r2Choice = 0;
+    int r1Choice = 0;
+    int batterChoice = 0;
+    bool isErrorExtraAdvance = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDState) => AlertDialog(
+          title: Text('${result.label}時の走者・打者の進塁確認'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '打者 [${currentBatters[currentBatterIndex].name}] は${result.label}です。\n各走者・打者の進塁先を選んでください：',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                const SizedBox(height: 10),
+
+                if (runners.runner3rd != null)
+                  _runnerChoiceTile(
+                    '3塁: ${_findPlayer(runners.runner3rd)?.name}',
+                    ['本塁生還 (得点)', '3塁で止まる'],
+                    (val) {
+                      setDState(() {
+                        r3Choice = val;
+                      });
+                    },
+                    r3Choice,
+                  ),
+
+                if (runners.runner2nd != null)
+                  _runnerChoiceTile(
+                    '2塁: ${_findPlayer(runners.runner2nd)?.name}',
+                    result == AtBatResult.singleHit
+                        ? ['3塁へ進塁', '2塁で止まる', '本塁生還 (追加進塁)']
+                        : ['本塁生還 (得点)', '2塁で止まる', '3塁で止まる'],
+                    (val) {
+                      setDState(() {
+                        r2Choice = val;
+                      });
+                    },
+                    r2Choice,
+                  ),
+
+                if (runners.runner1st != null)
+                  _runnerChoiceTile(
+                    '1塁: ${_findPlayer(runners.runner1st)?.name}',
+                    result == AtBatResult.singleHit
+                        ? ['2塁へ進塁', '1塁で止まる', '3塁へ (追加進塁)']
+                        : ['3塁へ進塁', '2塁で止まる', '本塁生還 (追加進塁)'],
+                    (val) {
+                      setDState(() {
+                        r1Choice = val;
+                      });
+                    },
+                    r1Choice,
+                  ),
+
+                _runnerChoiceTile(
+                  '打者: ${currentBatters[currentBatterIndex].name}',
+                  result == AtBatResult.singleHit
+                      ? ['1塁へ (標準)', '2塁へ (追加進塁)']
+                      : result == AtBatResult.doubleHit
+                      ? ['2塁へ (標準)', '3塁へ (追加進塁)']
+                      : ['3塁へ (標準)', '本塁へ (追加進塁)'],
+                  (val) {
+                    setDState(() {
+                      batterChoice = val;
+                    });
+                  },
+                  batterChoice,
+                ),
+
+                const Divider(height: 20),
+                CheckboxListTile(
+                  title: const Text(
+                    '追加進塁は守備側のエラー(敵失)によるもの',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  value: isErrorExtraAdvance,
+                  onChanged: (val) {
+                    setDState(() {
+                      isErrorExtraAdvance = val ?? false;
+                    });
+                  },
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+              },
+              child: const Text('キャンセル'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1B5E20),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+
+                int calcRuns = 0;
+                int calcRbi = 0;
+                List<String> scoredIds = [];
+                String? final3rd;
+                String? final2nd;
+                String? final1st;
+
+                int baseRbi = 0;
+                if (result == AtBatResult.singleHit) {
+                  if (runners.runner3rd != null) {
+                    baseRbi++;
+                  }
+                } else if (result == AtBatResult.doubleHit) {
+                  if (runners.runner3rd != null) {
+                    baseRbi++;
+                  }
+                  if (runners.runner2nd != null) {
+                    baseRbi++;
+                  }
+                } else if (result == AtBatResult.tripleHit) {
+                  if (runners.runner3rd != null) {
+                    baseRbi++;
+                  }
+                  if (runners.runner2nd != null) {
+                    baseRbi++;
+                  }
+                  if (runners.runner1st != null) {
+                    baseRbi++;
+                  }
+                }
+                calcRbi = baseRbi;
+
+                String? bDest = batterChoice == 0
+                    ? (result == AtBatResult.singleHit
+                          ? '1st'
+                          : result == AtBatResult.doubleHit
+                          ? '2nd'
+                          : '3rd')
+                    : (result == AtBatResult.singleHit
+                          ? '2nd'
+                          : result == AtBatResult.doubleHit
+                          ? '3rd'
+                          : 'home');
+
+                if (bDest == '1st') {
+                  final1st = batterId;
+                }
+                if (bDest == '2nd') {
+                  final2nd = batterId;
+                }
+                if (bDest == '3rd') {
+                  final3rd = batterId;
+                }
+                if (bDest == 'home') {
+                  calcRuns++;
+                  scoredIds.add(batterId);
+                  if (!isErrorExtraAdvance) {
+                    calcRbi++;
+                  }
+                }
+
+                if (runners.runner1st != null) {
+                  if (r1Choice == 0) {
+                    String target = result == AtBatResult.singleHit
+                        ? '2nd'
+                        : '3rd';
+                    if (target == '2nd') {
+                      final2nd ??= runners.runner1st;
+                    } else if (target == '3rd') {
+                      final3rd ??= runners.runner1st;
+                    }
+                  } else if (r1Choice == 1) {
+                    String target = result == AtBatResult.singleHit
+                        ? '1st'
+                        : '2nd';
+                    if (target == '1st') {
+                      final1st ??= runners.runner1st;
+                    } else if (target == '2nd') {
+                      final2nd ??= runners.runner1st;
+                    }
+                  } else {
+                    String target = result == AtBatResult.singleHit
+                        ? '3rd'
+                        : 'home';
+                    if (target == '3rd') {
+                      final3rd ??= runners.runner1st;
+                    } else if (target == 'home') {
+                      calcRuns++;
+                      scoredIds.add(runners.runner1st!);
+                      if (!isErrorExtraAdvance) {
+                        calcRbi++;
+                      }
+                    }
+                  }
+                }
+
+                if (runners.runner2nd != null) {
+                  if (r2Choice == 0) {
+                    if (result == AtBatResult.singleHit) {
+                      final3rd ??= runners.runner2nd;
+                    } else {
+                      calcRuns++;
+                      scoredIds.add(runners.runner2nd!);
+                    }
+                  } else if (r2Choice == 1) {
+                    final2nd ??= runners.runner2nd;
+                  } else {
+                    if (result == AtBatResult.singleHit) {
+                      calcRuns++;
+                      scoredIds.add(runners.runner2nd!);
+                      if (!isErrorExtraAdvance) {
+                        calcRbi++;
+                      }
+                    } else {
+                      final3rd ??= runners.runner2nd;
+                    }
+                  }
+                }
+
+                if (runners.runner3rd != null) {
+                  if (r3Choice == 0) {
+                    calcRuns++;
+                    scoredIds.add(runners.runner3rd!);
+                  } else {
+                    if (final3rd == null) {
+                      final3rd = runners.runner3rd;
+                    } else if (final2nd == null) {
+                      final2nd = final3rd;
+                      final3rd = runners.runner3rd;
+                    } else {
+                      final1st = final2nd;
+                      final2nd = final3rd;
+                      final3rd = runners.runner3rd;
+                    }
+                  }
+                }
+
+                BaseRunners customRunners = BaseRunners(
+                  runner1st: final1st,
+                  runner2nd: final2nd,
+                  runner3rd: final3rd,
+                );
+
+                if (isErrorExtraAdvance) {
+                  _promptErrorPlayerSelectionAndRecord(
+                    result,
+                    direction,
+                    customRunners,
+                    calcRuns,
+                    calcRbi,
+                    scoredIds,
+                  );
+                } else {
+                  _applyCustomHitResult(
+                    result,
+                    direction,
+                    customRunners,
+                    calcRuns,
+                    calcRbi,
+                    scoredIds,
+                  );
+                }
+              },
+              child: const Text('確定'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _promptErrorPlayerSelectionAndRecord(
+    AtBatResult result,
+    String direction,
+    BaseRunners customRunners,
+    int runs,
+    int rbi,
+    List<String> scoredIds,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('追加進塁エラーを起こした野手を選択'),
+        children: defendingPlayers.map((p) {
+          return SimpleDialogOption(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _applyCustomHitResult(
+                result,
+                direction,
+                customRunners,
+                runs,
+                rbi,
+                scoredIds,
+                errorPlayerId: p.id,
+              );
+            },
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade100,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    p.position,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  p.name,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   void _promptDirectionAndRecord(AtBatResult result, {String? errorPlayerId}) {
     if (outs >= 3 && activeEvent == null) {
       _showRuleWarning('⚠️ すでに3アウト（チェンジ）状態です。これ以上アウトになる打席は入力できません。');
       return;
     }
 
+    if (result == AtBatResult.doublePlay) {
+      if (outs >= 2) {
+        _showRuleWarning('⚠️ 2アウトの場面で併殺打（ダブルプレイ）は選択できません。');
+        return;
+      }
+      _promptDoublePlayRoute(errorPlayerId: errorPlayerId);
+      return;
+    }
+
+    if (result == AtBatResult.walk || result == AtBatResult.hitByPitch) {
+      _recordOrUpdateAtBat(result, direction: '');
+      return;
+    }
+
+    if (result == AtBatResult.error) {
+      if (runners.isNotEmpty) {
+        _promptWalkOrErrorRunnersDialog(
+          result,
+          errorPlayerId: errorPlayerId,
+          direction: errorPlayerId != null
+              ? defendingPlayers
+                    .firstWhere((p) => p.id == errorPlayerId)
+                    .position
+              : '',
+        );
+        return;
+      }
+    }
+
     bool needsDirection = [
       AtBatResult.singleHit,
       AtBatResult.doubleHit,
       AtBatResult.tripleHit,
+      AtBatResult.homeRun,
       AtBatResult.groundOut,
       AtBatResult.flyOut,
       AtBatResult.foulFlyOut,
@@ -826,9 +1408,6 @@ class _MainScreenState extends State<MainScreen> {
 
     if (!needsDirection) {
       String defaultDir = '';
-      if (result == AtBatResult.homeRun) {
-        defaultDir = '中';
-      }
       _recordOrUpdateAtBat(
         result,
         direction: defaultDir,
@@ -845,6 +1424,9 @@ class _MainScreenState extends State<MainScreen> {
         result == AtBatResult.tripleHit) {
       directions = ['左', '中', '右', '投', '捕', '一', '二', '三', '遊'];
       titleText = '打球方向（外野／内野安打）を選択';
+    } else if (result == AtBatResult.homeRun) {
+      directions = ['左', '左中間', '中', '右中間', '右'];
+      titleText = '本塁打の方向を選択';
     } else if (result == AtBatResult.groundOut) {
       directions = ['投', '捕', '一', '二', '三', '遊', '左', '中', '右'];
       titleText = 'ゴロの方向を選択';
@@ -874,11 +1456,19 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                   onPressed: () {
                     Navigator.pop(ctx);
-                    _recordOrUpdateAtBat(
-                      result,
-                      direction: dir,
-                      errorPlayerId: errorPlayerId,
-                    );
+                    if ((result == AtBatResult.singleHit ||
+                            result == AtBatResult.doubleHit ||
+                            result == AtBatResult.tripleHit ||
+                            result == AtBatResult.homeRun) &&
+                        runners.isNotEmpty) {
+                      _promptHitWithRunnersDialog(result, dir);
+                    } else {
+                      _recordOrUpdateAtBat(
+                        result,
+                        direction: dir,
+                        errorPlayerId: errorPlayerId,
+                      );
+                    }
                   },
                   child: Text(
                     dir,
@@ -897,56 +1487,6 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  void _recordOrUpdateAtBat(
-    AtBatResult result, {
-    required String direction,
-    String? errorPlayerId,
-  }) {
-    setState(() {
-      final batter = currentBatters[currentBatterIndex];
-      final targetEv = activeEvent;
-      final pitcher = activePitcher;
-
-      if (targetEv != null) {
-        targetEv.result = result;
-        targetEv.direction = direction;
-        targetEv.errorPlayerId = errorPlayerId;
-      } else {
-        final newEvent = PlateEvent(
-          eventId: _gameEvents.length + 1,
-          batterId: batter.id,
-          batterIndex: currentBatterIndex,
-          pitcherId: pitcher.id,
-          inning: inning,
-          isTop: isTop,
-          cycleIndex: _currentCycle,
-          result: result,
-          direction: direction,
-          rbi: 0,
-          runs: 0,
-          errorPlayerId: errorPlayerId,
-          runnersBefore: runners.copy(),
-          outsBefore: outs,
-          runnersAfter: runners.copy(),
-          outsAfter: outs,
-          causedInningEnd: false,
-        );
-        _gameEvents.add(newEvent);
-      }
-
-      _rebuildGameState();
-
-      final currentInnEvents = _gameEvents
-          .where((e) => e.inning == inning && e.isTop == isTop)
-          .toList();
-      if (currentInnEvents.isNotEmpty && currentInnEvents.last.outsAfter >= 3) {
-        _changeInning();
-      } else if (targetEv == null) {
-        _nextBatter();
-      }
-    });
-  }
-
   void _promptStrikeoutDialog() {
     if (outs >= 3 && activeEvent == null) {
       _showRuleWarning('⚠️ すでに3アウト（チェンジ）状態です。');
@@ -956,7 +1496,7 @@ class _MainScreenState extends State<MainScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('三振の種別を選択'),
-        content: const Text('この三振はアウトになりましたか？それとも振り逃げ等で出塁しましたか？'),
+        content: const Text('この三振は通常の三振（アウト）ですか？それとも振り逃げ（出塁）ですか？'),
         actions: [
           TextButton(
             onPressed: () {
@@ -964,7 +1504,7 @@ class _MainScreenState extends State<MainScreen> {
               _recordOrUpdateAtBat(AtBatResult.strikeoutSafe, direction: '');
             },
             child: const Text(
-              '振り逃げ (出塁/アウトなし)',
+              '振り逃げ (出塁)',
               style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold),
             ),
           ),
@@ -1142,7 +1682,9 @@ class _MainScreenState extends State<MainScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () {
+                Navigator.pop(ctx);
+              },
               child: const Text('キャンセル'),
             ),
             ElevatedButton(
@@ -1169,14 +1711,21 @@ class _MainScreenState extends State<MainScreen> {
                         return SimpleDialogOption(
                           onPressed: () {
                             Navigator.pop(dirCtx);
-                            _applySacrificeResult(
+                            List<String> scoredIds = [];
+                            if (runs > 0 && runners.runner3rd != null) {
+                              scoredIds.add(runners.runner3rd!);
+                            }
+                            _applyCustomHitResult(
                               finalResult,
                               dir,
-                              new1st,
-                              new2nd,
-                              new3rd,
+                              BaseRunners(
+                                runner1st: new1st,
+                                runner2nd: new2nd,
+                                runner3rd: new3rd,
+                              ),
                               runs,
                               rbi,
+                              scoredIds,
                             );
                           },
                           child: Text(
@@ -1210,13 +1759,12 @@ class _MainScreenState extends State<MainScreen> {
       builder: (ctx) => SimpleDialog(
         title: const Text('エラー（敵失）した守備選手を選択'),
         children: [
-          ...defendingPlayers.map(
-            (b) => SimpleDialogOption(
+          ...defendingPlayers.map((b) {
+            return SimpleDialogOption(
               onPressed: () {
                 Navigator.pop(ctx);
-                _recordOrUpdateAtBat(
+                _promptDirectionAndRecord(
                   AtBatResult.error,
-                  direction: b.position,
                   errorPlayerId: b.id,
                 );
               },
@@ -1249,13 +1797,13 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                 ],
               ),
-            ),
-          ),
+            );
+          }),
           const Divider(),
           SimpleDialogOption(
             onPressed: () {
               Navigator.pop(ctx);
-              _recordOrUpdateAtBat(AtBatResult.error, direction: '');
+              _promptDirectionAndRecord(AtBatResult.error);
             },
             child: const Text(
               '選手を指定せずに記録',
@@ -1273,7 +1821,7 @@ class _MainScreenState extends State<MainScreen> {
       return;
     }
     if (runners.isEmpty) {
-      _showRuleWarning('⚠️ 塁上に走者がいないため、牽制死・走塁死は発生しません。');
+      _showRuleWarning('⚠️ 走者がいないため、牽制死・走塁死は発生しません。');
       return;
     }
 
@@ -1289,7 +1837,7 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     if (onBase.length == 1) {
-      _applyPickoff(onBase.first.key);
+      _applyPickoff(onBase.first.key, onBase.first.value);
       return;
     }
 
@@ -1302,7 +1850,7 @@ class _MainScreenState extends State<MainScreen> {
           return SimpleDialogOption(
             onPressed: () {
               Navigator.pop(ctx);
-              _applyPickoff(entry.key);
+              _applyPickoff(entry.key, entry.value);
             },
             child: Row(
               children: [
@@ -1339,26 +1887,18 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  void _applyPickoff(String base) {
+  void _applyPickoff(String base, String runnerId) {
     if (outs >= 3) {
       _showRuleWarning('⚠️ すでに3アウト（チェンジ）状態です。');
       return;
     }
-    setState(() {
-      if (base == '1塁') {
-        runners.runner1st = null;
-      }
-      if (base == '2塁') {
-        runners.runner2nd = null;
-      }
-      if (base == '3塁') {
-        runners.runner3rd = null;
-      }
-      outs++;
-      if (outs >= 3) {
-        _changeInning();
-      }
-    });
+    final player = _findPlayer(runnerId);
+    _recordBaserunningEvent(
+      '走塁死 (${player?.name ?? ""} $base)',
+      runners.without(runnerId),
+      batterId: currentBatters[currentBatterIndex].id,
+      runnerId: runnerId,
+    );
   }
 
   void _promptSacrificeHit() {
@@ -1470,7 +2010,9 @@ class _MainScreenState extends State<MainScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () {
+                Navigator.pop(ctx);
+              },
               child: const Text('キャンセル'),
             ),
             ElevatedButton(
@@ -1480,14 +2022,21 @@ class _MainScreenState extends State<MainScreen> {
               ),
               onPressed: () {
                 Navigator.pop(ctx);
-                _applySacrificeResult(
+                List<String> scoredIds = [];
+                if (runs > 0 && runners.runner3rd != null) {
+                  scoredIds.add(runners.runner3rd!);
+                }
+                _applyCustomHitResult(
                   AtBatResult.sacrificeHit,
                   '投',
-                  new1st,
-                  new2nd,
-                  new3rd,
+                  BaseRunners(
+                    runner1st: new1st,
+                    runner2nd: new2nd,
+                    runner3rd: new3rd,
+                  ),
                   runs,
                   rbi,
+                  scoredIds,
                 );
               },
               child: const Text('確定 (1アウト)'),
@@ -1660,7 +2209,9 @@ class _MainScreenState extends State<MainScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () {
+                Navigator.pop(ctx);
+              },
               child: const Text('キャンセル'),
             ),
             ElevatedButton(
@@ -1682,14 +2233,21 @@ class _MainScreenState extends State<MainScreen> {
                       return SimpleDialogOption(
                         onPressed: () {
                           Navigator.pop(dirCtx);
-                          _applySacrificeResult(
+                          List<String> scoredIds = [];
+                          if (runs > 0 && runners.runner3rd != null) {
+                            scoredIds.add(runners.runner3rd!);
+                          }
+                          _applyCustomHitResult(
                             finalResult,
                             dir,
-                            new1st,
-                            new2nd,
-                            new3rd,
+                            BaseRunners(
+                              runner1st: new1st,
+                              runner2nd: new2nd,
+                              runner3rd: new3rd,
+                            ),
                             runs,
                             rbi,
+                            scoredIds,
                           );
                         },
                         child: Text(
@@ -1740,140 +2298,342 @@ class _MainScreenState extends State<MainScreen> {
                 )
                 .toList(),
             selected: {currentIdx},
-            onSelectionChanged: (selectedSet) => onSelected(selectedSet.first),
+            onSelectionChanged: (selectedSet) {
+              onSelected(selectedSet.first);
+            },
           ),
         ],
       ),
     );
   }
 
-  void _applySacrificeResult(
-    AtBatResult result,
-    String direction,
-    String? new1st,
-    String? new2nd,
-    String? new3rd,
-    int runs,
-    int rbi,
-  ) {
-    setState(() {
-      final batter = currentBatters[currentBatterIndex];
-      final targetEv = activeEvent;
-      final pitcher = activePitcher;
-
-      BaseRunners runnersBefore = targetEv != null
-          ? targetEv.runnersBefore.copy()
-          : runners.copy();
-      int outsBefore = targetEv != null ? targetEv.outsBefore : outs;
-
-      int nextOuts = outsBefore + 1;
-      bool inningEnded = nextOuts >= 3;
-
-      BaseRunners nextRunners = BaseRunners(
-        runner1st: new1st,
-        runner2nd: new2nd,
-        runner3rd: new3rd,
-      );
-
-      if (targetEv != null) {
-        targetEv.result = result;
-        targetEv.direction = direction;
-        targetEv.rbi = rbi;
-        targetEv.runs = runs;
-        targetEv.runnersAfter = nextRunners;
-        targetEv.outsAfter = nextOuts;
-        targetEv.causedInningEnd = inningEnded;
-      } else {
-        _gameEvents.add(
-          PlateEvent(
-            eventId: _gameEvents.length + 1,
-            batterId: batter.id,
-            batterIndex: currentBatterIndex,
-            pitcherId: pitcher.id,
-            inning: inning,
-            isTop: isTop,
-            cycleIndex: _currentCycle,
-            result: result,
-            direction: direction,
-            rbi: rbi,
-            runs: runs,
-            runnersBefore: runnersBefore,
-            outsBefore: outsBefore,
-            runnersAfter: nextRunners,
-            outsAfter: nextOuts,
-            causedInningEnd: inningEnded,
-          ),
-        );
-      }
-
-      _rebuildGameState();
-
-      final currentInnEvents = _gameEvents
-          .where((e) => e.inning == inning && e.isTop == isTop)
-          .toList();
-      if (currentInnEvents.isNotEmpty && currentInnEvents.last.outsAfter >= 3) {
-        _changeInning();
-      } else if (targetEv == null) {
-        _nextBatter();
-      }
-    });
-  }
-
   void _handleSteal() {
     if (runners.isEmpty) {
-      _showRuleWarning('⚠️ 塁上に走者がいないため、盗塁はできません。');
+      _showRuleWarning('⚠️ 走者がいないため、盗塁はできません。');
       return;
     }
-    setState(() {
-      if (runners.runner3rd != null && runners.runner2nd == null) {
-        _addRuns(1);
-        final r = _findPlayer(runners.runner3rd);
-        if (r != null) {
-          r.runsScored++;
-        }
-        runners.runner3rd = null;
-      } else if (runners.runner2nd != null && runners.runner3rd == null) {
-        runners.runner3rd = runners.runner2nd;
-        runners.runner2nd = null;
-      } else if (runners.runner1st != null && runners.runner2nd == null) {
-        runners.runner2nd = runners.runner1st;
-        runners.runner1st = null;
-      } else {
-        if (runners.runner3rd != null) {
-          _addRuns(1);
-          final r = _findPlayer(runners.runner3rd);
-          if (r != null) {
-            r.runsScored++;
-          }
-        }
-        runners.runner3rd = runners.runner2nd;
-        runners.runner2nd = runners.runner1st;
-        runners.runner1st = null;
-      }
-    });
+    List<MapEntry<String, String>> onBase = [];
+    if (runners.runner1st != null) {
+      onBase.add(
+        MapEntry(
+          '1塁走者 (${_findPlayer(runners.runner1st)?.name})',
+          runners.runner1st!,
+        ),
+      );
+    }
+    if (runners.runner2nd != null) {
+      onBase.add(
+        MapEntry(
+          '2塁走者 (${_findPlayer(runners.runner2nd)?.name})',
+          runners.runner2nd!,
+        ),
+      );
+    }
+    if (runners.runner3rd != null) {
+      onBase.add(
+        MapEntry(
+          '3塁走者 (${_findPlayer(runners.runner3rd)?.name})',
+          runners.runner3rd!,
+        ),
+      );
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('盗塁した走者を選択'),
+        children: onBase.map((entry) {
+          return SimpleDialogOption(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _executeStealForRunner(entry.value);
+            },
+            child: Text(
+              entry.key,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 
-  void _handleAdvanceAll() {
+  /// 盗塁成功を記録する。
+  ///
+  /// 盗塁した走者と、その後ろにいる走者がそれぞれ1つずつ進塁する
+  /// （重盗を想定した挙動）ものとして扱う。
+  void _executeStealForRunner(String runnerId) {
+    final runnerName = _findPlayer(runnerId)?.name ?? '';
+    BaseRunners nextRunners;
+    int calcRuns = 0;
+    final scoredIds = <String>[];
+
+    if (runnerId == runners.runner3rd) {
+      // 本盗。3塁走者が生還し、後続はひとつずつ進む。
+      calcRuns++;
+      scoredIds.add(runnerId);
+      nextRunners = BaseRunners(
+        runner2nd: runners.runner1st,
+        runner3rd: runners.runner2nd,
+      );
+    } else if (runnerId == runners.runner2nd) {
+      nextRunners = BaseRunners(
+        runner2nd: runners.runner1st,
+        runner3rd: runners.runner2nd,
+      );
+    } else {
+      nextRunners = BaseRunners(
+        runner2nd: runners.runner1st,
+        runner3rd: runners.runner3rd,
+      );
+    }
+
+    _recordBaserunningEvent(
+      '盗塁成功 ($runnerName)',
+      nextRunners,
+      isSteal: true,
+      batterId: currentBatters[currentBatterIndex].id,
+      runnerId: runnerId,
+      runs: calcRuns,
+      scoredIds: scoredIds,
+    );
+  }
+
+  void _promptAdvanceRunnersDialog(String eventName) {
     if (runners.isEmpty) {
-      _showRuleWarning('⚠️ 塁上に走者がいないため、進塁（WP/PB）はできません。');
+      _showRuleWarning('⚠️ 走者がいないため発生しません。');
       return;
     }
-    setState(() {
-      if (runners.runner3rd != null) {
-        _addRuns(1);
-        final r = _findPlayer(runners.runner3rd);
-        if (r != null) {
-          r.runsScored++;
-        }
-      }
-      runners.runner3rd = runners.runner2nd;
-      runners.runner2nd = runners.runner1st;
-      runners.runner1st = null;
-    });
+
+    int r3Choice = 1;
+    int r2Choice = 2;
+    int r1Choice = 1;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDState) => AlertDialog(
+          title: Text('$eventName 時の各走者の進塁先設定'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '各走者の進塁先を個別に選んでください：',
+                  style: TextStyle(fontSize: 12, color: Colors.black87),
+                ),
+                const SizedBox(height: 10),
+                if (runners.runner3rd != null)
+                  _runnerChoiceTile(
+                    '3塁: ${_findPlayer(runners.runner3rd)?.name}',
+                    ['本塁生還 (得点)', '3塁そのまま'],
+                    (val) {
+                      setDState(() {
+                        r3Choice = val;
+                      });
+                    },
+                    r3Choice,
+                  ),
+                if (runners.runner2nd != null)
+                  _runnerChoiceTile(
+                    '2塁: ${_findPlayer(runners.runner2nd)?.name}',
+                    ['3塁へ進塁', '2塁そのまま'],
+                    (val) {
+                      setDState(() {
+                        r2Choice = val;
+                      });
+                    },
+                    r2Choice,
+                  ),
+                if (runners.runner1st != null)
+                  _runnerChoiceTile(
+                    '1塁: ${_findPlayer(runners.runner1st)?.name}',
+                    ['2塁へ進塁', '1塁そのまま'],
+                    (val) {
+                      setDState(() {
+                        r1Choice = val;
+                      });
+                    },
+                    r1Choice,
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+              },
+              child: const Text('キャンセル'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1B5E20),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+
+                int calcRuns = 0;
+                List<String> scoredIds = [];
+                String? original1st = runners.runner1st;
+                String? original2nd = runners.runner2nd;
+                String? original3rd = runners.runner3rd;
+
+                String? next3rd;
+                String? next2nd;
+                String? next1st;
+
+                if (original1st != null) {
+                  if (r1Choice == 0) {
+                    next2nd = original1st;
+                  } else {
+                    next1st = original1st;
+                  }
+                }
+
+                if (original2nd != null) {
+                  if (r2Choice == 0) {
+                    next3rd = original2nd;
+                  } else {
+                    if (next2nd == null) {
+                      next2nd = original2nd;
+                    } else {
+                      next3rd = original2nd;
+                    }
+                  }
+                }
+
+                if (original3rd != null) {
+                  if (r3Choice == 0) {
+                    calcRuns++;
+                    scoredIds.add(original3rd);
+                  } else {
+                    if (next3rd == null) {
+                      next3rd = original3rd;
+                    } else if (next2nd == null) {
+                      next2nd = next3rd;
+                      next3rd = original3rd;
+                    } else {
+                      next1st ??= next2nd;
+                      next2nd = next3rd;
+                      next3rd = original3rd;
+                    }
+                  }
+                }
+
+                BaseRunners nextR = BaseRunners(
+                  runner1st: next1st,
+                  runner2nd: next2nd,
+                  runner3rd: next3rd,
+                );
+                _recordBaserunningEvent(
+                  eventName,
+                  nextR,
+                  runs: calcRuns,
+                  scoredIds: scoredIds,
+                );
+              },
+              child: const Text('確定'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleWildPitch() {
+    _promptAdvanceRunnersDialog('ワイルドピッチ (WP)');
+  }
+
+  void _handlePassedBall() {
+    _promptAdvanceRunnersDialog('パスボール (PB)');
   }
 
   Player? _getPlayerByPosition(String pos) {
     return defendingPlayers.where((p) => p.position == pos).firstOrNull;
+  }
+
+  void _showGameHistoryDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.history, color: Colors.green),
+            SizedBox(width: 8),
+            Text('試合イベント履歴（タイムライン）'),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: _state.events.isEmpty
+              ? const Text(
+                  'まだイベントが記録されていません。',
+                  style: TextStyle(color: Colors.grey),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _state.events.length,
+                  itemBuilder: (context, idx) {
+                    final ev = _state.events[idx];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 3),
+                      child: ListTile(
+                        dense: true,
+                        leading: CircleAvatar(
+                          radius: 12,
+                          backgroundColor: ev.isTop
+                              ? Colors.green.shade700
+                              : Colors.blue.shade700,
+                          child: Text(
+                            '${ev.inning}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          '${ev.isTop ? "表" : "裏"} | ${ev.description}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '得点: ${ev.runs}点 | アウト増: ${ev.addedOuts}'
+                          '${ev.isIgnored ? " ※3アウト後のため集計対象外" : ""}',
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(
+                            Icons.delete,
+                            color: Colors.red,
+                            size: 18,
+                          ),
+                          tooltip: 'このイベントを削除',
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _deleteEvent(ev.eventId);
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+            },
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -1889,9 +2649,19 @@ class _MainScreenState extends State<MainScreen> {
         elevation: 3,
         actions: [
           IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: '試合イベント履歴・取消',
+            onPressed: _showGameHistoryDialog,
+          ),
+          IconButton(
             icon: const Icon(Icons.undo),
             tooltip: '1手戻す',
             onPressed: _gameEvents.isNotEmpty ? _undo : null,
+          ),
+          IconButton(
+            icon: const Icon(Icons.share),
+            tooltip: '試合結果をシェア',
+            onPressed: _shareResult,
           ),
           IconButton(
             icon: const Icon(Icons.settings),
@@ -1905,7 +2675,11 @@ class _MainScreenState extends State<MainScreen> {
           : _buildUnifiedScoreAndStatsTab(),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedTabIndex,
-        onDestinationSelected: (idx) => setState(() => _selectedTabIndex = idx),
+        onDestinationSelected: (idx) {
+          setState(() {
+            _selectedTabIndex = idx;
+          });
+        },
         indicatorColor: Colors.green.shade200,
         destinations: const [
           NavigationDestination(
@@ -1914,7 +2688,7 @@ class _MainScreenState extends State<MainScreen> {
           ),
           NavigationDestination(
             icon: Icon(Icons.table_chart),
-            label: 'スコア・個人成績',
+            label: 'スコア・成績一覧',
           ),
         ],
       ),
@@ -2020,7 +2794,9 @@ class _MainScreenState extends State<MainScreen> {
                                 ),
                               ),
                               InkWell(
-                                onTap: () => _jumpToInning(inn, true),
+                                onTap: () {
+                                  _jumpToInning(inn, true);
+                                },
                                 child: Container(
                                   width: 32,
                                   height: 22,
@@ -2043,7 +2819,9 @@ class _MainScreenState extends State<MainScreen> {
                                 ),
                               ),
                               InkWell(
-                                onTap: () => _jumpToInning(inn, false),
+                                onTap: () {
+                                  _jumpToInning(inn, false);
+                                },
                                 child: Container(
                                   width: 32,
                                   height: 22,
@@ -2153,6 +2931,7 @@ class _MainScreenState extends State<MainScreen> {
                 ),
 
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     const Icon(Icons.sports, size: 13, color: Colors.black54),
                     const SizedBox(width: 4),
@@ -2166,7 +2945,7 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '(${activePitcher.pitcherStats.inningsPitched}回 ${activePitcher.pitcherStats.strikeouts}K ${activePitcher.pitcherStats.runsAllowed}失点)',
+                      '(${activePitcher.stats.pitching.inningsPitched}回 ${activePitcher.stats.pitching.strikeouts}K ${activePitcher.stats.pitching.runsAllowed}失点)',
                       style: const TextStyle(
                         fontSize: 10,
                         color: Colors.black54,
@@ -2263,6 +3042,7 @@ class _MainScreenState extends State<MainScreen> {
                 final evInThisCycle = _gameEvents
                     .where(
                       (e) =>
+                          !e.isBaserunningEvent &&
                           e.inning == inning &&
                           e.isTop == isTop &&
                           e.cycleIndex == _currentCycle &&
@@ -2276,7 +3056,9 @@ class _MainScreenState extends State<MainScreen> {
                     avatar: evInThisCycle != null
                         ? CircleAvatar(
                             radius: 7,
-                            backgroundColor: evInThisCycle.result.isHit
+                            backgroundColor:
+                                evInThisCycle.result != null &&
+                                    evInThisCycle.result!.isHit
                                 ? Colors.blue.shade700
                                 : Colors.grey.shade600,
                             child: const Text(
@@ -2299,7 +3081,9 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                     selected: isCurrent,
                     selectedColor: Colors.amber.shade300,
-                    onSelected: (_) => _jumpToBatter(idx),
+                    onSelected: (_) {
+                      _jumpToBatter(idx);
+                    },
                   ),
                 );
               }).toList(),
@@ -2339,7 +3123,9 @@ class _MainScreenState extends State<MainScreen> {
                       const SizedBox(height: 6),
                       OutlinedButton.icon(
                         onPressed: () {
-                          setState(() => _changeInning());
+                          setState(() {
+                            _changeInning();
+                          });
                         },
                         icon: const Icon(Icons.swap_horiz, size: 14),
                         label: const Text(
@@ -2421,27 +3207,15 @@ class _MainScreenState extends State<MainScreen> {
 
                         Positioned(
                           top: 14,
-                          child: _baseNode(
-                            '2塁',
-                            runners.runner2nd,
-                            () => _editRunnerDialog('2塁'),
-                          ),
+                          child: _baseNode('2塁', runners.runner2nd, () {}),
                         ),
                         Positioned(
                           left: 14,
-                          child: _baseNode(
-                            '3塁',
-                            runners.runner3rd,
-                            () => _editRunnerDialog('3塁'),
-                          ),
+                          child: _baseNode('3塁', runners.runner3rd, () {}),
                         ),
                         Positioned(
                           right: 14,
-                          child: _baseNode(
-                            '1塁',
-                            runners.runner1st,
-                            () => _editRunnerDialog('1塁'),
-                          ),
+                          child: _baseNode('1塁', runners.runner1st, () {}),
                         ),
                         const Positioned(
                           bottom: 14,
@@ -2482,14 +3256,14 @@ class _MainScreenState extends State<MainScreen> {
                     color: Colors.black54,
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _handleSteal,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: runners.isEmpty
                           ? Colors.grey.shade300
-                          : Colors.teal.shade50,
+                          : Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       minimumSize: const Size(0, 28),
                     ),
@@ -2498,31 +3272,54 @@ class _MainScreenState extends State<MainScreen> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: _handleAdvanceAll,
+                    onPressed: _handleWildPitch,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: runners.isEmpty
                           ? Colors.grey.shade300
-                          : Colors.teal.shade50,
+                          : Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       minimumSize: const Size(0, 28),
                     ),
                     child: const Text(
-                      'WP / PB',
+                      'WP',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
+                        color: Colors.black87,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _handlePassedBall,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: runners.isEmpty
+                          ? Colors.grey.shade300
+                          : Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      minimumSize: const Size(0, 28),
+                    ),
+                    child: const Text(
+                      'PB',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _promptPickoffDialog,
@@ -2534,7 +3331,7 @@ class _MainScreenState extends State<MainScreen> {
                       minimumSize: const Size(0, 28),
                     ),
                     child: const Text(
-                      '牽制/走塁死',
+                      '走塁死',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -2549,6 +3346,27 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(height: 8),
 
           _buildCategorizedActionButtons(),
+
+          const SizedBox(height: 30),
+          Center(
+            child: ElevatedButton.icon(
+              onPressed: _saveAndExit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1B5E20),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+              ),
+              icon: const Icon(Icons.save),
+              label: const Text(
+                '保存して一覧に戻る',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -2576,13 +3394,13 @@ class _MainScreenState extends State<MainScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _categoryHeader('安打（全ポジション・内野安打選択対応）', Colors.blue.shade800),
+        _categoryHeader('安打', Colors.green.shade800),
         Row(
           children: [
             Expanded(
               child: _actionBtn(
                 '単打 (1H)',
-                Colors.blue.shade100,
+                Colors.white,
                 () => _promptDirectionAndRecord(AtBatResult.singleHit),
               ),
             ),
@@ -2590,7 +3408,7 @@ class _MainScreenState extends State<MainScreen> {
             Expanded(
               child: _actionBtn(
                 '二塁打 (2B)',
-                Colors.blue.shade200,
+                Colors.white,
                 () => _promptDirectionAndRecord(AtBatResult.doubleHit),
               ),
             ),
@@ -2598,7 +3416,7 @@ class _MainScreenState extends State<MainScreen> {
             Expanded(
               child: _actionBtn(
                 '三塁打 (3B)',
-                Colors.blue.shade300,
+                Colors.white,
                 () => _promptDirectionAndRecord(AtBatResult.tripleHit),
               ),
             ),
@@ -2606,7 +3424,7 @@ class _MainScreenState extends State<MainScreen> {
             Expanded(
               child: _actionBtn(
                 '本塁打 (HR)',
-                Colors.amber.shade300,
+                Colors.green.shade50,
                 () => _promptDirectionAndRecord(AtBatResult.homeRun),
               ),
             ),
@@ -2614,13 +3432,13 @@ class _MainScreenState extends State<MainScreen> {
         ),
         const SizedBox(height: 8),
 
-        _categoryHeader('四死球・相手失策', Colors.teal.shade800),
+        _categoryHeader('四死球・出塁', Colors.teal.shade800),
         Row(
           children: [
             Expanded(
               child: _actionBtn(
                 '四球 (BB)',
-                Colors.teal.shade100,
+                Colors.white,
                 () => _promptDirectionAndRecord(AtBatResult.walk),
               ),
             ),
@@ -2628,37 +3446,29 @@ class _MainScreenState extends State<MainScreen> {
             Expanded(
               child: _actionBtn(
                 '死球 (HBP)',
-                Colors.teal.shade200,
+                Colors.white,
                 () => _promptDirectionAndRecord(AtBatResult.hitByPitch),
               ),
             ),
             const SizedBox(width: 6),
             Expanded(
-              child: _actionBtn(
-                '敵失 (エラー)',
-                Colors.orange.shade200,
-                _promptErrorDialog,
-              ),
+              child: _actionBtn('敵失 (エラー)', Colors.white, _promptErrorDialog),
             ),
           ],
         ),
         const SizedBox(height: 8),
 
-        _categoryHeader('進塁打（バント・犠牲フライ・タッチアップ）', Colors.purple.shade800),
+        _categoryHeader('犠打・犠飛・進塁', Colors.indigo.shade800),
         Row(
           children: [
             Expanded(
-              child: _actionBtn(
-                '犠打 (送りバント)',
-                Colors.purple.shade100,
-                _promptSacrificeHit,
-              ),
+              child: _actionBtn('犠打 (バント)', Colors.white, _promptSacrificeHit),
             ),
             const SizedBox(width: 6),
             Expanded(
               child: _actionBtn(
-                runners.runner3rd != null ? '犠飛 (犠牲フライ)' : 'フライ進塁 (タッチアップ)',
-                Colors.purple.shade200,
+                runners.runner3rd != null ? '犠飛 (犠牲フライ)' : 'フライ進塁',
+                Colors.white,
                 _promptSacrificeFly,
               ),
             ),
@@ -2666,41 +3476,35 @@ class _MainScreenState extends State<MainScreen> {
         ),
         const SizedBox(height: 8),
 
-        _categoryHeader('凡退・アウト（ファウルフライ対応）', Colors.red.shade800),
+        _categoryHeader('凡退・アウト', Colors.red.shade800),
         Row(
           children: [
-            Expanded(
-              child: _actionBtn('ゴロ凡退', Colors.red.shade100, _handleGroundOut),
-            ),
+            Expanded(child: _actionBtn('ゴロ凡退', Colors.white, _handleGroundOut)),
             const SizedBox(width: 4),
             Expanded(
               child: _actionBtn(
                 '飛球凡退',
-                Colors.red.shade100,
+                Colors.white,
                 () => _promptDirectionAndRecord(AtBatResult.flyOut),
               ),
             ),
             const SizedBox(width: 4),
             Expanded(
               child: _actionBtn(
-                'ファウル邪飛',
-                Colors.red.shade100,
+                '邪飛',
+                Colors.white,
                 () => _promptDirectionAndRecord(AtBatResult.foulFlyOut),
               ),
             ),
             const SizedBox(width: 4),
             Expanded(
-              child: _actionBtn(
-                '三振 (K/振逃)',
-                Colors.red.shade200,
-                _promptStrikeoutDialog,
-              ),
+              child: _actionBtn('三振', Colors.white, _promptStrikeoutDialog),
             ),
             const SizedBox(width: 4),
             Expanded(
               child: _actionBtn(
                 '併殺 (DP)',
-                Colors.red.shade300,
+                Colors.red.shade50,
                 () => _promptDirectionAndRecord(AtBatResult.doublePlay),
               ),
             ),
@@ -2739,7 +3543,7 @@ class _MainScreenState extends State<MainScreen> {
           int idx = entry.key;
           Player b = entry.value;
           bool isSelected = idx == currentBatterIndex;
-          final matchEvs = b.appearances
+          final matchEvs = b.stats.appearances
               .where((p) => p.inning == inning && p.isTop == isTop)
               .toList();
 
@@ -2807,104 +3611,6 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  void _editRunnerDialog(String baseName) {
-    showDialog(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: Text('$baseName の走者設定'),
-        children: [
-          SimpleDialogOption(
-            onPressed: () {
-              setState(() {
-                if (baseName == '1塁') {
-                  runners.runner1st = null;
-                }
-                if (baseName == '2塁') {
-                  runners.runner2nd = null;
-                }
-                if (baseName == '3塁') {
-                  runners.runner3rd = null;
-                }
-              });
-              Navigator.pop(ctx);
-            },
-            child: const Text(
-              '走者なし（空にする / 走塁死）',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-          SimpleDialogOption(
-            onPressed: () {
-              String? currentId = (baseName == '1塁')
-                  ? runners.runner1st
-                  : (baseName == '2塁')
-                  ? runners.runner2nd
-                  : runners.runner3rd;
-
-              if (currentId == null) {
-                _showRuleWarning('⚠️ 走者がいないため、本塁生還はできません。');
-                Navigator.pop(ctx);
-                return;
-              }
-
-              setState(() {
-                _addRuns(1);
-                final b = _findPlayer(currentId);
-                if (b != null) {
-                  b.runsScored++;
-                }
-                if (baseName == '1塁') {
-                  runners.runner1st = null;
-                }
-                if (baseName == '2塁') {
-                  runners.runner2nd = null;
-                }
-                if (baseName == '3塁') {
-                  runners.runner3rd = null;
-                }
-              });
-              Navigator.pop(ctx);
-            },
-            child: const Text(
-              '本塁生還（＋1得点）',
-              style: TextStyle(
-                color: Colors.green,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const Divider(),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Text(
-              '選手を直接配置:',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ),
-          ...currentBatters.map(
-            (b) => SimpleDialogOption(
-              onPressed: () {
-                setState(() {
-                  if (baseName == '1塁') {
-                    runners.runner1st = b.id;
-                  }
-                  if (baseName == '2塁') {
-                    runners.runner2nd = b.id;
-                  }
-                  if (baseName == '3塁') {
-                    runners.runner3rd = b.id;
-                  }
-                });
-                Navigator.pop(ctx);
-              },
-              child: Text('${b.name} (${b.position})'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ================= 2. スコア・個人成績タブ =================
   Widget _buildUnifiedScoreAndStatsTab() {
     int displayInnings = scoresTop.length > totalInningsConfig
@@ -2945,7 +3651,7 @@ class _MainScreenState extends State<MainScreen> {
                   if (val != null) {
                     setState(() {
                       totalInningsConfig = val;
-                      _ensureInningCapacity(val);
+                      _rebuildGameState();
                     });
                   }
                 },
@@ -3079,7 +3785,6 @@ class _MainScreenState extends State<MainScreen> {
           ),
           const SizedBox(height: 14),
 
-          // 1. 打席表＆個人打撃成績
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -3091,7 +3796,7 @@ class _MainScreenState extends State<MainScreen> {
                 ),
               ),
               Text(
-                '安打計: ${activeBatters.fold(0, (s, b) => s + b.hits)}本',
+                '安打計: ${activeBatters.fold(0, (s, b) => s + b.stats.hits)}本',
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
@@ -3135,6 +3840,7 @@ class _MainScreenState extends State<MainScreen> {
                       _th('本塁', isAccent: true),
                       _th('打点', isAccent: true),
                       _th('得点'),
+                      _th('盗塁', isAccent: true),
                       _th('四球'),
                       _th('死球'),
                       _th('犠打'),
@@ -3142,6 +3848,7 @@ class _MainScreenState extends State<MainScreen> {
                       _th('三振'),
                       _th('敵失'),
                       _th('打率', isAccent: true),
+                      _th('失策', isAccent: true),
                     ],
                   ),
                   ...activeBatters.asMap().entries.map((entry) {
@@ -3159,13 +3866,15 @@ class _MainScreenState extends State<MainScreen> {
                         _td('${b.name} (${b.position})', isBold: true),
                         ...List.generate(displayInnings, (innIdx) {
                           int currentInn = innIdx + 1;
-                          final pas = b.appearances
+                          final pas = b.stats.appearances
                               .where((p) => p.inning == currentInn)
                               .toList();
                           if (pas.isEmpty) {
                             return _td('-');
                           }
-                          bool hasHit = pas.any((p) => p.result.isHit);
+                          bool hasHit = pas.any(
+                            (p) => p.result != null && p.result!.isHit,
+                          );
                           String text = pas
                               .map(
                                 (p) =>
@@ -3197,47 +3906,152 @@ class _MainScreenState extends State<MainScreen> {
                             ),
                           );
                         }),
-                        _td('${b.pa}'),
-                        _td('${b.ab}'),
+                        _td('${b.stats.pa}'),
+                        _td('${b.stats.ab}'),
                         _td(
-                          '${b.hits}',
+                          '${b.stats.hits}',
                           isBold: true,
                           textColor: Colors.blue.shade900,
                         ),
-                        _td('${b.doubles}'),
-                        _td('${b.triples}'),
+                        _td('${b.stats.doubles}'),
+                        _td('${b.stats.triples}'),
                         _td(
-                          '${b.hr}',
-                          isBold: b.hr > 0,
-                          textColor: b.hr > 0 ? Colors.purple.shade800 : null,
+                          '${b.stats.hr}',
+                          isBold: b.stats.hr > 0,
+                          textColor: b.stats.hr > 0 ? Colors.purple.shade800 : null,
                         ),
                         _td(
-                          '${b.rbi}',
-                          isBold: b.rbi > 0,
-                          textColor: b.rbi > 0 ? Colors.red.shade800 : null,
+                          '${b.stats.rbi}',
+                          isBold: b.stats.rbi > 0,
+                          textColor: b.stats.rbi > 0 ? Colors.red.shade800 : null,
                         ),
-                        _td('${b.runsScored}'),
-                        _td('${b.bb}'),
-                        _td('${b.hbp}'),
-                        _td('${b.sh}'),
-                        _td('${b.sf}'),
-                        _td('${b.so}'),
-                        _td('${b.roe}'),
+                        _td('${b.stats.runsScored}'),
                         _td(
-                          b.battingAverage,
+                          '${b.stats.sb}',
+                          isBold: b.stats.sb > 0,
+                          textColor: Colors.teal.shade800,
+                        ),
+                        _td('${b.stats.bb}'),
+                        _td('${b.stats.hbp}'),
+                        _td('${b.stats.sh}'),
+                        _td('${b.stats.sf}'),
+                        _td('${b.stats.so}'),
+                        _td('${b.stats.roe}'),
+                        _td(
+                          b.stats.battingAverage,
                           isBold: true,
                           textColor: Colors.green.shade900,
+                        ),
+                        _td(
+                          '${b.stats.errorsCommitted}',
+                          textColor: b.stats.errorsCommitted > 0
+                              ? Colors.red.shade800
+                              : null,
                         ),
                       ],
                     );
                   }),
+                  // チーム合計行
+                  TableRow(
+                    decoration: const BoxDecoration(color: Color(0xFFE8F5E9)),
+                    children: [
+                      _td('計', isBold: true),
+                      _td('-', isBold: true),
+                      ...List.generate(displayInnings, (innIdx) {
+                        int currentInn = innIdx + 1;
+                        int innRuns = isTop
+                            ? (scoresTop.length >= currentInn
+                                  ? scoresTop[currentInn - 1]
+                                  : 0)
+                            : (scoresBottom.length >= currentInn
+                                  ? scoresBottom[currentInn - 1]
+                                  : 0);
+                        return _td(
+                          innRuns > 0 ? '$innRuns' : '-',
+                          isBold: true,
+                        );
+                      }),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.pa)}',
+                        isBold: true,
+                      ),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.ab)}',
+                        isBold: true,
+                      ),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.hits)}',
+                        isBold: true,
+                        textColor: Colors.blue.shade900,
+                      ),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.doubles)}',
+                        isBold: true,
+                      ),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.triples)}',
+                        isBold: true,
+                      ),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.hr)}',
+                        isBold: true,
+                      ),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.rbi)}',
+                        isBold: true,
+                        textColor: Colors.red.shade800,
+                      ),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.runsScored)}',
+                        isBold: true,
+                      ),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.sb)}',
+                        isBold: true,
+                        textColor: Colors.teal.shade800,
+                      ),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.bb)}',
+                        isBold: true,
+                      ),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.hbp)}',
+                        isBold: true,
+                      ),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.sh)}',
+                        isBold: true,
+                      ),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.sf)}',
+                        isBold: true,
+                      ),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.so)}',
+                        isBold: true,
+                      ),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.roe)}',
+                        isBold: true,
+                      ),
+                      _td(
+                        _calculateTeamBattingAverage(activeBatters),
+                        isBold: true,
+                        textColor: Colors.green.shade900,
+                      ),
+                      _td(
+                        '${activeBatters.fold(0, (s, b) => s + b.stats.errorsCommitted)}',
+                        isBold: true,
+                        textColor: Colors.red.shade800,
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 18),
 
-          // 2. 投手成績テーブル
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -3294,10 +4108,10 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                   ...activePitchers
                       .where(
-                        (p) => p.pitchingEvents.isNotEmpty || p.position == '投',
+                        (p) => p.stats.pitchingEvents.isNotEmpty || p.position == '投',
                       )
                       .map((p) {
-                        final pStats = p.pitcherStats;
+                        final pStats = p.stats.pitching;
                         return TableRow(
                           children: [
                             _td('${p.name} (${p.position})', isBold: true),
@@ -3325,7 +4139,7 @@ class _MainScreenState extends State<MainScreen> {
                                   : null,
                             ),
                             _td(
-                              pStats.era,
+                              pStats.era(),
                               isBold: true,
                               textColor: Colors.brown.shade900,
                             ),
@@ -3338,7 +4152,6 @@ class _MainScreenState extends State<MainScreen> {
           ),
           const SizedBox(height: 18),
 
-          // 3. 選手詳細カード一覧
           ...activeBatters.asMap().entries.map((entry) {
             int idx = entry.key;
             Player b = entry.value;
@@ -3388,7 +4201,7 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                         const Spacer(),
                         Text(
-                          '打率 ${b.battingAverage}',
+                          '打率 ${b.stats.battingAverage}',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
@@ -3418,28 +4231,34 @@ class _MainScreenState extends State<MainScreen> {
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: [
-                            _statItem('打席', '${b.pa}'),
-                            _statItem('打数', '${b.ab}'),
-                            _statItem('安打', '${b.hits}', isBold: true),
-                            _statItem('2塁打', '${b.doubles}'),
-                            _statItem('3塁打', '${b.triples}'),
-                            _statItem('本塁打', '${b.hr}', isBold: true),
+                            _statItem('打席', '${b.stats.pa}'),
+                            _statItem('打数', '${b.stats.ab}'),
+                            _statItem('安打', '${b.stats.hits}', isBold: true),
+                            _statItem('2塁打', '${b.stats.doubles}'),
+                            _statItem('3塁打', '${b.stats.triples}'),
+                            _statItem('本塁打', '${b.stats.hr}', isBold: true),
                             _statItem(
                               '打点',
-                              '${b.rbi}',
+                              '${b.stats.rbi}',
                               textColor: Colors.red.shade800,
                             ),
-                            _statItem('得点', '${b.runsScored}'),
-                            _statItem('四球', '${b.bb}'),
-                            _statItem('死球', '${b.hbp}'),
-                            _statItem('犠打', '${b.sh}'),
-                            _statItem('犠飛', '${b.sf}'),
-                            _statItem('三振', '${b.so}'),
-                            _statItem('敵失出塁', '${b.roe}'),
+                            _statItem('得点', '${b.stats.runsScored}'),
+                            _statItem(
+                              '盗塁',
+                              '${b.stats.sb}',
+                              isBold: b.stats.sb > 0,
+                              textColor: Colors.teal.shade800,
+                            ),
+                            _statItem('四球', '${b.stats.bb}'),
+                            _statItem('死球', '${b.stats.hbp}'),
+                            _statItem('犠打', '${b.stats.sh}'),
+                            _statItem('犠飛', '${b.stats.sf}'),
+                            _statItem('三振', '${b.stats.so}'),
+                            _statItem('敵失出塁', '${b.stats.roe}'),
                             _statItem(
                               '守備エラー',
-                              '${b.errorsCommitted}',
-                              textColor: b.errorsCommitted > 0
+                              '${b.stats.errorsCommitted}',
+                              textColor: b.stats.errorsCommitted > 0
                                   ? Colors.red
                                   : null,
                             ),
@@ -3448,57 +4267,67 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
 
-                    if (b.appearances.isNotEmpty) ...[
+                    if (b.stats.appearances.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
-                          children: b.appearances.asMap().entries.map((pEntry) {
-                            int paIdx = pEntry.key;
-                            PlateEvent pa = pEntry.value;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 6.0),
-                              child: ActionChip(
-                                avatar: CircleAvatar(
-                                  radius: 7,
-                                  backgroundColor: pa.result.isHit
-                                      ? Colors.blue.shade700
-                                      : Colors.grey.shade600,
-                                  child: Text(
-                                    '${paIdx + 1}',
-                                    style: const TextStyle(
-                                      fontSize: 8,
-                                      color: Colors.white,
+                          children: b.stats.appearances
+                              .asMap()
+                              .entries
+                              .map((pEntry) {
+                                final paIdx = pEntry.key;
+                                final ResolvedEvent pa = pEntry.value;
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 6.0),
+                                  child: ActionChip(
+                                    avatar: CircleAvatar(
+                                      radius: 7,
+                                      backgroundColor:
+                                          pa.result != null && pa.result!.isHit
+                                          ? Colors.blue.shade700
+                                          : Colors.grey.shade600,
+                                      child: Text(
+                                        '${paIdx + 1}',
+                                        style: const TextStyle(
+                                          fontSize: 8,
+                                          color: Colors.white,
+                                        ),
+                                      ),
                                     ),
+                                    label: Text(
+                                      '${pa.inning}回(${pa.displayShortLabel})${pa.rbi > 0 ? " [${pa.rbi}点]" : ""}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight:
+                                            pa.result != null &&
+                                                pa.result!.isHit
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color:
+                                            pa.result != null &&
+                                                pa.result!.isHit
+                                            ? Colors.blue.shade900
+                                            : Colors.black87,
+                                      ),
+                                    ),
+                                    backgroundColor:
+                                        pa.result != null && pa.result!.isHit
+                                        ? Colors.blue.shade50
+                                        : Colors.grey.shade100,
+                                    onPressed: () {
+                                      _jumpToInning(pa.inning, pa.isTop);
+                                      setState(() {
+                                        _currentCycle = pa.cycleIndex;
+                                        currentBatterIndex = pa.batterIndex;
+                                        _selectedTabIndex = 0;
+                                        _syncCurrentView();
+                                      });
+                                    },
                                   ),
-                                ),
-                                label: Text(
-                                  '${pa.inning}回(${pa.displayShortLabel})${pa.rbi > 0 ? " [${pa.rbi}点]" : ""}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: pa.result.isHit
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                    color: pa.result.isHit
-                                        ? Colors.blue.shade900
-                                        : Colors.black87,
-                                  ),
-                                ),
-                                backgroundColor: pa.result.isHit
-                                    ? Colors.blue.shade50
-                                    : Colors.grey.shade100,
-                                onPressed: () {
-                                  _jumpToInning(pa.inning, pa.isTop);
-                                  setState(() {
-                                    _currentCycle = pa.cycleIndex;
-                                    currentBatterIndex = pa.batterIndex;
-                                    _selectedTabIndex = 0;
-                                    _syncCurrentView();
-                                  });
-                                },
-                              ),
-                            );
-                          }).toList(),
+                                );
+                              })
+                              .toList(),
                         ),
                       ),
                     ],
@@ -3532,6 +4361,19 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  String _calculateTeamBattingAverage(List<Player> batters) {
+    int totalAb = batters.fold(0, (s, b) => s + b.stats.ab);
+    int totalHits = batters.fold(0, (s, b) => s + b.stats.hits);
+    if (totalAb == 0) {
+      return '.---';
+    }
+    double avg = totalHits / totalAb;
+    if (avg >= 1.0) {
+      return '1.000';
+    }
+    return avg.toStringAsFixed(3).substring(1);
+  }
+
   Widget _statItem(
     String label,
     String value, {
@@ -3556,106 +4398,63 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  /// 打者の氏名・守備位置を編集する。
+  ///
+  /// 得点や失策はイベントの再生結果から自動集計されるため、ここでは編集しない。
   void _editBatterInfoDialog(List<Player> list, int index) {
-    final nameCtrl = TextEditingController(text: list[index].name);
-    final posCtrl = TextEditingController(text: list[index].position);
-    int runs = list[index].runsScored;
-    int errs = list[index].errorsCommitted;
+    final player = list[index];
+    final nameCtrl = TextEditingController(text: player.name);
+    final posCtrl = TextEditingController(text: player.position);
 
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text('${index + 1}番打者の編集'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: '選手名'),
-              ),
-              TextField(
-                controller: posCtrl,
-                decoration: const InputDecoration(labelText: '守備位置'),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('得点数:'),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove),
-                        onPressed: runs > 0
-                            ? () => setDialogState(() => runs--)
-                            : null,
-                      ),
-                      Text(
-                        '$runs',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.add),
-                        onPressed: () => setDialogState(() => runs++),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('守備エラー数:'),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove),
-                        onPressed: errs > 0
-                            ? () => setDialogState(() => errs--)
-                            : null,
-                      ),
-                      Text(
-                        '$errs',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.add),
-                        onPressed: () => setDialogState(() => errs++),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('キャンセル'),
+      builder: (ctx) => AlertDialog(
+        title: Text('${index + 1}番打者の編集'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: '選手名'),
             ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  list[index].name = nameCtrl.text;
-                  list[index].position = posCtrl.text;
-                  list[index].runsScored = runs;
-                  list[index].errorsCommitted = errs;
-                });
-                Navigator.pop(ctx);
-              },
-              child: const Text('保存'),
+            TextField(
+              controller: posCtrl,
+              decoration: const InputDecoration(labelText: '守備位置'),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '得点・失策は打席結果から自動で集計されます。',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+            },
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                if (nameCtrl.text.isNotEmpty) {
+                  player.name = nameCtrl.text;
+                }
+                if (posCtrl.text.isNotEmpty) {
+                  player.position = posCtrl.text;
+                }
+              });
+              Navigator.pop(ctx);
+            },
+            child: const Text('保存'),
+          ),
+        ],
       ),
-    );
+    ).whenComplete(() {
+      nameCtrl.dispose();
+      posCtrl.dispose();
+    });
   }
 
   void _showSettingsDialog() {
@@ -3697,7 +4496,9 @@ class _MainScreenState extends State<MainScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () {
+              Navigator.pop(ctx);
+            },
             child: const Text('キャンセル'),
           ),
           ElevatedButton(
@@ -3723,34 +4524,27 @@ class _MainScreenState extends State<MainScreen> {
         content: const Text('現在のスコア、両チームの全打席結果、走者状況をすべて初期化しますか？'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () {
+              Navigator.pop(ctx);
+            },
             child: const Text('キャンセル'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
               setState(() {
+                // イベントを消せば、成績はすべて再生結果として初期化される。
+                _gameEvents.clear();
+                _nextEventId = 1;
                 inning = 1;
                 isTop = true;
-                _initInnings(totalInningsConfig);
-                errorsTop = errorsBottom = outs = 0;
-                runners = BaseRunners();
+                outs = 0;
+                runners = BaseRunners.empty;
                 batterIndexTop = 0;
                 batterIndexBottom = 0;
-                _currentCycle = 0;
-                _gameEvents.clear();
-                for (var b in playersTop) {
-                  b.appearances.clear();
-                  b.pitchingEvents.clear();
-                  b.runsScored = 0;
-                  b.errorsCommitted = 0;
-                }
-                for (var b in playersBottom) {
-                  b.appearances.clear();
-                  b.pitchingEvents.clear();
-                  b.runsScored = 0;
-                  b.errorsCommitted = 0;
-                }
+                cycleIndexTop = 0;
+                cycleIndexBottom = 0;
+                _rebuildGameState();
               });
               Navigator.pop(ctx);
             },
@@ -3793,27 +4587,13 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _clickableOutLamp(int targetOut) {
     bool isFilled = outs >= targetOut;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          if (isFilled) {
-            outs = targetOut - 1;
-          } else {
-            outs = targetOut;
-            if (outs >= 3) {
-              _changeInning();
-            }
-          }
-        });
-      },
-      child: Container(
-        width: 24,
-        height: 24,
-        decoration: BoxDecoration(
-          color: isFilled ? Colors.redAccent : Colors.grey.shade300,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.black26),
-        ),
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        color: isFilled ? Colors.redAccent : Colors.grey.shade300,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.black26),
       ),
     );
   }
@@ -3822,37 +4602,34 @@ class _MainScreenState extends State<MainScreen> {
     final runner = _findPlayer(runnerId);
     final isOn = runner != null;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-        decoration: BoxDecoration(
-          color: isOn ? Colors.amberAccent : const Color(0xE6FFFFFF),
-          borderRadius: BorderRadius.circular(5),
-          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2)],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: isOn ? Colors.amberAccent : const Color(0xE6FFFFFF),
+        borderRadius: BorderRadius.circular(5),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2)],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            baseName,
+            style: TextStyle(
+              fontSize: 8,
+              fontWeight: FontWeight.bold,
+              color: isOn ? Colors.black87 : Colors.black45,
+            ),
+          ),
+          if (isOn)
             Text(
-              baseName,
-              style: TextStyle(
-                fontSize: 8,
+              runner.name,
+              style: const TextStyle(
+                fontSize: 9,
                 fontWeight: FontWeight.bold,
-                color: isOn ? Colors.black87 : Colors.black45,
+                color: Colors.black,
               ),
             ),
-            if (isOn)
-              Text(
-                runner.name,
-                style: const TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
