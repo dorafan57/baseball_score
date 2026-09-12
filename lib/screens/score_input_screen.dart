@@ -94,27 +94,66 @@ class _ScoreInputScreenState extends ConsumerState<ScoreInputScreen> {
   // =====================================
   // シェア用テキストの生成処理
   // =====================================
+
+  /// チーム略称の表示幅（全角2文字分）。
+  static const int _teamCodeWidth = 4;
+
+  /// 全角文字を2、半角文字を1として文字列の表示幅を数える。
+  static int _visualWidth(String s) {
+    int width = 0;
+    for (final rune in s.runes) {
+      width += _isWideRune(rune) ? 2 : 1;
+    }
+    return width;
+  }
+
+  static bool _isWideRune(int rune) {
+    return (rune >= 0x1100 && rune <= 0x115F) || // ハングル字母
+        (rune >= 0x2E80 && rune <= 0xA4CF) || // CJK 部首・仮名・ハングル音節等
+        (rune >= 0xAC00 && rune <= 0xD7A3) || // ハングル音節
+        (rune >= 0xF900 && rune <= 0xFAFF) || // CJK互換漢字
+        (rune >= 0xFF00 && rune <= 0xFF60) || // 全角英数・記号
+        (rune >= 0xFFE0 && rune <= 0xFFE6);
+  }
+
+  /// 表示幅が [maxWidth] を超えないよう、文字を途中で分割せずに切り詰める。
+  static String _visualTruncate(String s, int maxWidth) {
+    final buffer = StringBuffer();
+    int width = 0;
+    for (final rune in s.runes) {
+      final charWidth = _isWideRune(rune) ? 2 : 1;
+      if (width + charWidth > maxWidth) {
+        break;
+      }
+      buffer.writeCharCode(rune);
+      width += charWidth;
+    }
+    return buffer.toString();
+  }
+
+  /// 表示幅が [targetWidth] になるよう半角スペースで埋める。
+  static String _padToVisualWidth(String s, int targetWidth) {
+    final padding = targetWidth - _visualWidth(s);
+    return padding > 0 ? s + ' ' * padding : s;
+  }
+
   String _generateShareText() {
     int maxInn = scoresTop.length;
-    String header = '   ';
+    String header = ' ' * (_teamCodeWidth + 1);
     for (int i = 1; i <= maxInn; i++) {
       header += '$i ';
     }
     header += '| R H E';
 
-    String topNameShort = teamNameTop.length > 2
-        ? teamNameTop.substring(0, 2)
-        : teamNameTop;
-    String topRow = '${topNameShort.padRight(2, ' ')} ';
+    String topNameShort = _visualTruncate(teamNameTop, _teamCodeWidth);
+    String topRow = '${_padToVisualWidth(topNameShort, _teamCodeWidth)} ';
     for (int s in scoresTop) {
       topRow += '$s ';
     }
     topRow += '| $totalScoreTop $totalHitsTop $errorsTop';
 
-    String btmNameShort = teamNameBottom.length > 2
-        ? teamNameBottom.substring(0, 2)
-        : teamNameBottom;
-    String btmRow = '${btmNameShort.padRight(2, ' ')} ';
+    String btmNameShort = _visualTruncate(teamNameBottom, _teamCodeWidth);
+    String btmRow = '${_padToVisualWidth(btmNameShort, _teamCodeWidth)} ';
     for (int s in scoresBottom) {
       btmRow += '$s ';
     }

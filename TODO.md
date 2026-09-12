@@ -69,9 +69,15 @@
   → `BaseNode`（`lib/widgets/board/diamond_field.dart`）で
   `GestureDetector` に配線済み。塁タップ時の挙動（代走など）は未定のため
   呼び出し側では渡していない（コードに TODO あり）
-- シェアテキスト（`_generateShareText`）が全角チーム名に `padRight` を使っており桁がずれる
-- 3アウト成立後に記録されたイベントが `_gameEvents` に残り続ける
-  （集計対象外にはなっており、履歴ダイアログに「※3アウト後のため集計対象外」と表示される）
+- ~~シェアテキスト（`_generateShareText`）が全角チーム名に `padRight` を使っており桁がずれる~~
+  → `lib/screens/score_input_screen.dart` に全角文字を2、半角文字を1として
+  数える表示幅ベースの切り詰め・パディング処理を追加して対応
+- ~~3アウト成立後に記録されたイベントが `_gameEvents` に残り続ける~~
+  → ジャンプ機能で3アウト成立済みの半イニングに戻った状態で新規の打席・
+  走塁イベントを追加しようとした場合、`GameNotifier.commitAtBat` /
+  `recordBaserunningEvent` が記録自体を行わないよう修正（既存イベントの
+  上書き更新は従来どおり可能）。修正前に記録済みの「集計対象外」イベントは
+  履歴ダイアログから手動削除できる
 
 ## F. リポジトリの整理
 

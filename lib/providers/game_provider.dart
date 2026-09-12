@@ -407,6 +407,11 @@ class GameNotifier extends Notifier<GameSessionState> {
     List<String>? scoredIds,
   }) {
     final s = state;
+    // ジャンプ機能で既に3アウト成立済みの半イニングへ戻っている場合、
+    // ここで新規イベントを追加すると集計対象外のまま残り続けてしまうため記録しない。
+    if (s.outs >= 3) {
+      return;
+    }
     final events = [
       ...s.gameEvents,
       GameEvent(
@@ -525,6 +530,13 @@ class GameNotifier extends Notifier<GameSessionState> {
     final batter = s.currentBatters[s.currentBatterIndex];
     final target = s.activeEvent;
     final isUpdate = target != null;
+
+    // ジャンプ機能で既に3アウト成立済みの半イニングへ戻っている場合、
+    // 新規の打席入力（上書き更新ではない）を追加すると集計対象外のまま
+    // 残り続けてしまうため記録しない。
+    if (!isUpdate && s.outs >= 3) {
+      return;
+    }
 
     final event = GameEvent(
       eventId: isUpdate ? target.eventId : s.nextEventId,
