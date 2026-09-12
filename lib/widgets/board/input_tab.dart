@@ -326,7 +326,7 @@ class InputTab extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '${currentBatterIndex + 1}番 [${currentBatters[currentBatterIndex].position}] ${currentBatters[currentBatterIndex].name}',
+                          '${currentBatterIndex + 1}番 [${currentBatters[currentBatterIndex].positionLabel}] ${currentBatters[currentBatterIndex].name}',
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -336,7 +336,7 @@ class InputTab extends StatelessWidget {
                     ),
                     Row(
                       children: [
-                        if (currentEv != null)
+                        if (currentEv != null && session.canEdit)
                           IconButton(
                             icon: const Icon(
                               Icons.delete_outline,
@@ -370,7 +370,7 @@ class InputTab extends StatelessWidget {
                     const Icon(Icons.sports, size: 13, color: Colors.black54),
                     const SizedBox(width: 4),
                     Text(
-                      '対戦投手: [${activePitcher.position}] ${activePitcher.name}',
+                      '対戦投手: [${activePitcher.positionLabel}] ${activePitcher.name}',
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -387,11 +387,13 @@ class InputTab extends StatelessWidget {
                     ),
                     const Spacer(),
                     OutlinedButton.icon(
-                      onPressed: () => showChangePitcherDialog(
-                        context,
-                        session: session,
-                        notifier: notifier,
-                      ),
+                      onPressed: session.canEdit
+                          ? () => showChangePitcherDialog(
+                              context,
+                              session: session,
+                              notifier: notifier,
+                            )
+                          : null,
                       icon: const Icon(Icons.swap_calls, size: 12),
                       label: const Text('投手交代', style: TextStyle(fontSize: 10)),
                       style: OutlinedButton.styleFrom(
@@ -677,136 +679,152 @@ class InputTab extends StatelessWidget {
           ),
           const SizedBox(height: 6),
 
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.directions_run,
-                  size: 15,
-                  color: Colors.black54,
-                ),
-                const SizedBox(width: 4),
-                const Text(
-                  '走塁:',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black54,
+          IgnorePointer(
+            ignoring: !session.canEdit,
+            child: Opacity(
+              opacity: session.canEdit ? 1 : 0.4,
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.directions_run,
+                          size: 15,
+                          color: Colors.black54,
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          '走塁:',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black54,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => showStealDialog(
+                              context,
+                              session: session,
+                              notifier: notifier,
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: runners.isEmpty
+                                  ? Colors.grey.shade300
+                                  : Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              minimumSize: const Size(0, 28),
+                            ),
+                            child: const Text(
+                              '盗塁',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => showAdvanceRunnersDialog(
+                              context,
+                              session: session,
+                              notifier: notifier,
+                              eventName: 'ワイルドピッチ (WP)',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: runners.isEmpty
+                                  ? Colors.grey.shade300
+                                  : Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              minimumSize: const Size(0, 28),
+                            ),
+                            child: const Text(
+                              'WP',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => showAdvanceRunnersDialog(
+                              context,
+                              session: session,
+                              notifier: notifier,
+                              eventName: 'パスボール (PB)',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: runners.isEmpty
+                                  ? Colors.grey.shade300
+                                  : Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              minimumSize: const Size(0, 28),
+                            ),
+                            child: const Text(
+                              'PB',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => showPickoffDialog(
+                              context,
+                              session: session,
+                              notifier: notifier,
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: runners.isEmpty
+                                  ? Colors.grey.shade300
+                                  : Colors.red.shade50,
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              minimumSize: const Size(0, 28),
+                            ),
+                            child: const Text(
+                              '走塁死',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => showStealDialog(
-                      context,
-                      session: session,
-                      notifier: notifier,
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: runners.isEmpty
-                          ? Colors.grey.shade300
-                          : Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      minimumSize: const Size(0, 28),
-                    ),
-                    child: const Text(
-                      '盗塁',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
+                  const SizedBox(height: 8),
+
+                  CategorizedActionButtons(
+                    session: session,
+                    notifier: notifier,
                   ),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => showAdvanceRunnersDialog(
-                      context,
-                      session: session,
-                      notifier: notifier,
-                      eventName: 'ワイルドピッチ (WP)',
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: runners.isEmpty
-                          ? Colors.grey.shade300
-                          : Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      minimumSize: const Size(0, 28),
-                    ),
-                    child: const Text(
-                      'WP',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => showAdvanceRunnersDialog(
-                      context,
-                      session: session,
-                      notifier: notifier,
-                      eventName: 'パスボール (PB)',
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: runners.isEmpty
-                          ? Colors.grey.shade300
-                          : Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      minimumSize: const Size(0, 28),
-                    ),
-                    child: const Text(
-                      'PB',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => showPickoffDialog(
-                      context,
-                      session: session,
-                      notifier: notifier,
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: runners.isEmpty
-                          ? Colors.grey.shade300
-                          : Colors.red.shade50,
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      minimumSize: const Size(0, 28),
-                    ),
-                    child: const Text(
-                      '走塁死',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.red,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-
-          CategorizedActionButtons(session: session, notifier: notifier),
 
           const SizedBox(height: 30),
           Center(

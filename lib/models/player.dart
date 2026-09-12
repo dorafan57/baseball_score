@@ -32,3 +32,8 @@ class Player {
     position: json['position'] as String,
   );
 }
+
+/// 守備位置が未入力の選手を表示する際のラベル。
+extension PlayerDisplay on Player {
+  String get positionLabel => position.isEmpty ? '－' : position;
+}

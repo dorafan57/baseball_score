@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/saved_game.dart';
 import '../providers/game_provider.dart';
-import '../services/game_storage_service.dart';
+import '../services/game_sync_service.dart';
+import '../widgets/dialogs/edit_key_gate_dialog.dart';
+import '../widgets/dialogs/new_game_dialog.dart';
 import 'score_input_screen.dart';
 
 // ==========================================
@@ -17,7 +19,7 @@ class GameListScreen extends ConsumerStatefulWidget {
 }
 
 class _GameListScreenState extends ConsumerState<GameListScreen> {
-  final _storage = GameStorageService();
+  GameSyncService get _sync => ref.read(gameSyncServiceProvider);
   List<SavedGame>? _savedGames;
 
   @override
@@ -27,7 +29,7 @@ class _GameListScreenState extends ConsumerState<GameListScreen> {
   }
 
   Future<void> _loadGames() async {
-    final games = await _storage.loadAll();
+    final games = await _sync.loadAll();
     if (!mounted) {
       return;
     }
@@ -37,20 +39,54 @@ class _GameListScreenState extends ConsumerState<GameListScreen> {
   }
 
   Future<void> _createNewGame() async {
-    ref.read(gameProvider.notifier).startNewGame();
+    final input = await showNewGameDialog(context);
+    if (input == null) {
+      return;
+    }
+    final notifier = ref.read(gameProvider.notifier);
+    notifier.startNewGame();
+    notifier.updateTeamNames(
+      top: input.teamNameTop,
+      bottom: input.teamNameBottom,
+    );
+    final gameId = DateTime.now().millisecondsSinceEpoch.toString();
+    await _sync.createGame(notifier.toSavedGame(gameId), input.editKey);
+    notifier.setCanEdit(true);
+    if (!mounted) {
+      return;
+    }
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => ScoreInputScreen(
-          gameId: DateTime.now().millisecondsSinceEpoch.toString(),
-        ),
-      ),
+      MaterialPageRoute(builder: (context) => ScoreInputScreen(gameId: gameId)),
     );
     _loadGames();
   }
 
+  /// まだ編集権限を持っていなければ、鍵入力ダイアログで編集権限を得るか
+  /// 閲覧のみで続けるかを確認する。戻り値は最終的な編集可否。
+  Future<bool> _resolveCanEdit(String gameId) async {
+    if (await _sync.isEditor(gameId)) {
+      return true;
+    }
+    if (!mounted) {
+      return false;
+    }
+    final result = await showEditKeyGateDialog(
+      context,
+      sync: _sync,
+      gameId: gameId,
+    );
+    return result ?? false;
+  }
+
   Future<void> _openGame(SavedGame game) async {
-    ref.read(gameProvider.notifier).loadGame(game);
+    final canEdit = await _resolveCanEdit(game.gameId);
+    if (!mounted) {
+      return;
+    }
+    final notifier = ref.read(gameProvider.notifier);
+    notifier.loadGame(game);
+    notifier.setCanEdit(canEdit);
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -61,12 +97,18 @@ class _GameListScreenState extends ConsumerState<GameListScreen> {
   }
 
   Future<void> _confirmDeleteGame(SavedGame game) async {
+    final canEdit = await _resolveCanEdit(game.gameId);
+    if (!mounted || !canEdit) {
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('試合データの削除'),
         content: Text(
-          '${game.teamNameTop} vs ${game.teamNameBottom} を削除しますか？\nこの操作は取り消せません。',
+          '${game.teamNameTop} vs ${game.teamNameBottom} を削除しますか？\n'
+          'この試合はオンラインで共有されており、削除するとこの試合を開いている'
+          '全員から見えなくなります。取り消せません。',
         ),
         actions: [
           TextButton(
@@ -81,7 +123,7 @@ class _GameListScreenState extends ConsumerState<GameListScreen> {
       ),
     );
     if (confirmed == true) {
-      await _storage.deleteGame(game.gameId);
+      await _sync.deleteGame(game.gameId);
       _loadGames();
     }
   }

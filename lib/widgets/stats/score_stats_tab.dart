@@ -81,11 +81,13 @@ class ScoreStatsTab extends StatelessWidget {
                           DropdownMenuItem(value: val, child: Text('$val回制')),
                     )
                     .toList(),
-                onChanged: (val) {
-                  if (val != null) {
-                    notifier.setTotalInnings(val);
-                  }
-                },
+                onChanged: session.canEdit
+                    ? (val) {
+                        if (val != null) {
+                          notifier.setTotalInnings(val);
+                        }
+                      }
+                    : null,
               ),
             ],
           ),
@@ -291,7 +293,7 @@ class ScoreStatsTab extends StatelessWidget {
                         children: [
                           StatsDataCell('${bIdx + 1}', isBold: true),
                           StatsDataCell(
-                            '${b.name} (${b.position})',
+                            '${b.name} (${b.positionLabel})',
                             isBold: true,
                           ),
                           ...List.generate(displayInnings, (innIdx) {
@@ -510,7 +512,7 @@ class ScoreStatsTab extends StatelessWidget {
                           return TableRow(
                             children: [
                               StatsDataCell(
-                                '${p.name} (${p.position})',
+                                '${p.name} (${p.positionLabel})',
                                 isBold: true,
                               ),
                               StatsDataCell(
@@ -585,7 +587,7 @@ class ScoreStatsTab extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '(${b.position})',
+                          '(${b.positionLabel})',
                           style: const TextStyle(
                             color: Colors.black54,
                             fontSize: 12,
@@ -599,15 +601,16 @@ class ScoreStatsTab extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.edit, size: 16),
-                          onPressed: () => showEditBatterDialog(
-                            context,
-                            notifier: notifier,
-                            player: b,
-                            index: idx,
+                        if (session.canEdit)
+                          IconButton(
+                            icon: const Icon(Icons.edit, size: 16),
+                            onPressed: () => showEditBatterDialog(
+                              context,
+                              notifier: notifier,
+                              player: b,
+                              index: idx,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -721,15 +724,16 @@ class ScoreStatsTab extends StatelessWidget {
           }),
           const SizedBox(height: 10),
 
-          Center(
-            child: ElevatedButton.icon(
-              onPressed: () {
-                notifier.addPlayer(teamIndex == 0);
-              },
-              icon: const Icon(Icons.add),
-              label: Text('$activeTeamName の打順を追加'),
+          if (session.canEdit)
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  notifier.addPlayer(teamIndex == 0);
+                },
+                icon: const Icon(Icons.add),
+                label: Text('$activeTeamName の打順を追加'),
+              ),
             ),
-          ),
           const SizedBox(height: 20),
         ],
       ),

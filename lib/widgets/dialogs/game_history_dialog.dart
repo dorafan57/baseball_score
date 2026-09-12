@@ -7,6 +7,7 @@ void showGameHistoryDialog(
   BuildContext context, {
   required GameState state,
   required ValueChanged<int> onDeleteEvent,
+  required bool canEdit,
 }) {
   showDialog(
     context: context,
@@ -60,18 +61,20 @@ void showGameHistoryDialog(
                         '${ev.isIgnored ? " ※3アウト後のため集計対象外" : ""}',
                         style: const TextStyle(fontSize: 10),
                       ),
-                      trailing: IconButton(
-                        icon: const Icon(
-                          Icons.delete,
-                          color: Colors.red,
-                          size: 18,
-                        ),
-                        tooltip: 'このイベントを削除',
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          onDeleteEvent(ev.eventId);
-                        },
-                      ),
+                      trailing: canEdit
+                          ? IconButton(
+                              icon: const Icon(
+                                Icons.delete,
+                                color: Colors.red,
+                                size: 18,
+                              ),
+                              tooltip: 'このイベントを削除',
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                onDeleteEvent(ev.eventId);
+                              },
+                            )
+                          : null,
                     ),
                   );
                 },

@@ -5,7 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import '../models/game_event.dart';
 import '../models/game_state.dart';
 import '../providers/game_provider.dart';
-import '../services/game_storage_service.dart';
+import '../services/game_sync_service.dart';
 import '../widgets/board/input_tab.dart';
 import '../widgets/dialogs/game_history_dialog.dart';
 import '../widgets/dialogs/settings_dialog.dart';
@@ -23,6 +23,24 @@ class ScoreInputScreen extends ConsumerStatefulWidget {
 class _ScoreInputScreenState extends ConsumerState<ScoreInputScreen> {
   int _selectedTabIndex = 0;
   int _scoreTabTeamIndex = 0;
+
+  // dispose() 内では ref を安全に使えないため、initState() の時点で
+  // Notifier への参照をフィールドに保持しておく。
+  late final GameNotifier _remoteNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _remoteNotifier = ref.read(gameProvider.notifier);
+    // リアルタイム購読を開始し、他の編集者・閲覧者による変更を即座に反映する。
+    _remoteNotifier.connectToRemote(widget.gameId);
+  }
+
+  @override
+  void dispose() {
+    _remoteNotifier.disconnectFromRemote();
+    super.dispose();
+  }
 
   // --- 以下は GameNotifier（lib/providers/game_provider.dart）が保持する
   //     進行状態への読み取り専用の窓口。試合の「事実」や打順・イニングなど
@@ -180,8 +198,10 @@ class _ScoreInputScreenState extends ConsumerState<ScoreInputScreen> {
   }
 
   Future<void> _saveAndExit() async {
-    final saved = _notifier.toSavedGame(widget.gameId);
-    await GameStorageService().saveGame(saved);
+    if (_session.canEdit) {
+      final saved = _notifier.toSavedGame(widget.gameId);
+      await ref.read(gameSyncServiceProvider).saveGame(saved);
+    }
     if (!mounted) {
       return;
     }
@@ -195,9 +215,9 @@ class _ScoreInputScreenState extends ConsumerState<ScoreInputScreen> {
     final notifier = _notifier;
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          '草野球スコア記録',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          session.canEdit ? '草野球スコア記録' : '草野球スコア記録（閲覧のみ）',
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFF1B5E20),
         foregroundColor: Colors.white,
@@ -210,17 +230,20 @@ class _ScoreInputScreenState extends ConsumerState<ScoreInputScreen> {
               context,
               state: _state,
               onDeleteEvent: _deleteEvent,
+              canEdit: session.canEdit,
             ),
           ),
           IconButton(
             icon: const Icon(Icons.undo),
             tooltip: '1手戻す',
-            onPressed: _gameEvents.isNotEmpty ? _undo : null,
+            onPressed: session.canEdit && _gameEvents.isNotEmpty
+                ? _undo
+                : null,
           ),
           IconButton(
             icon: const Icon(Icons.redo),
             tooltip: '1手進める',
-            onPressed: session.canRedo ? _redo : null,
+            onPressed: session.canEdit && session.canRedo ? _redo : null,
           ),
           IconButton(
             icon: const Icon(Icons.share),

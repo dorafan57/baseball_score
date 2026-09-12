@@ -1,7 +1,60 @@
 import 'package:baseball_score/main.dart';
+import 'package:baseball_score/models/saved_game.dart';
+import 'package:baseball_score/services/game_sync_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// テスト用のインメモリ実装。実際のFirestoreへは繋がない。
+/// 編集キーの照合は行わず、常に編集権限があるものとして振る舞う。
+class FakeGameSyncService implements GameSyncService {
+  final Map<String, SavedGame> _games = {};
+
+  @override
+  Future<List<SavedGame>> loadAll() async => _games.values.toList();
+
+  @override
+  Future<void> createGame(SavedGame game, String editKey) async {
+    _games[game.gameId] = game;
+  }
+
+  @override
+  Future<void> saveGame(SavedGame game) async {
+    _games[game.gameId] = game;
+  }
+
+  @override
+  Future<void> deleteGame(String gameId) async {
+    _games.remove(gameId);
+  }
+
+  @override
+  Stream<SavedGame?> watchGame(String gameId) => const Stream.empty();
+
+  @override
+  Future<bool> isEditor(String gameId) async => true;
+
+  @override
+  Future<bool> tryUnlockEditor(String gameId, String editKey) async => true;
+}
+
+/// テスト用に [FakeGameSyncService] で上書きした [ProviderScope] を返す。
+Widget testApp() => ProviderScope(
+  overrides: [
+    gameSyncServiceProvider.overrideWithValue(FakeGameSyncService()),
+  ],
+  child: const BaseballScoreApp(),
+);
+
+/// 「新規試合」ボタン→作成ダイアログの「作成」ボタンの順にタップし、
+/// 既定のチーム名でスコア入力画面を開く。
+Future<void> startNewGame(WidgetTester tester) async {
+  await tester.tap(find.text('新規試合'));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.widgetWithText(TextField, '編集キー'), 'test-key');
+  await tester.tap(find.text('作成'));
+  await tester.pumpAndSettle();
+}
 
 /// 履歴ダイアログに並んでいるイベント件数。
 int historyEntryCount(WidgetTester tester) =>
@@ -36,13 +89,10 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(
-      const ProviderScope(child: BaseballScoreApp()),
-    );
+    await tester.pumpWidget(testApp());
     expect(find.text('草野球スコア - 試合一覧'), findsOneWidget);
 
-    await tester.tap(find.text('新規試合'));
-    await tester.pumpAndSettle();
+    await startNewGame(tester);
 
     expect(find.text('草野球スコア記録'), findsOneWidget);
     expect(find.text('1回 表 (自チーム (先) 攻)'), findsOneWidget);
@@ -53,16 +103,13 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(
-      const ProviderScope(child: BaseballScoreApp()),
-    );
-    await tester.tap(find.text('新規試合'));
-    await tester.pumpAndSettle();
+    await tester.pumpWidget(testApp());
+    await startNewGame(tester);
 
     await recordWalk(tester);
 
     // 1番打者が1塁に出て、2番打者に移る。
-    expect(find.text('2番 [中] 鈴木'), findsOneWidget);
+    expect(find.text('2番 [－] 選手名2'), findsOneWidget);
 
     await openHistory(tester);
     expect(historyEntryCount(tester), 1);
@@ -74,11 +121,8 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(
-      const ProviderScope(child: BaseballScoreApp()),
-    );
-    await tester.tap(find.text('新規試合'));
-    await tester.pumpAndSettle();
+    await tester.pumpWidget(testApp());
+    await startNewGame(tester);
 
     for (var i = 0; i < 4; i++) {
       await recordWalk(tester);

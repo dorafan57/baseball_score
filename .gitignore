@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Firebase設定値（実際の値）。dart_define.example.json を参考に各自作成する。
+dart_define.local.json

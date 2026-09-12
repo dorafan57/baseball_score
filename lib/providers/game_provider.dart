@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,6 +12,7 @@ import '../models/game_state.dart';
 import '../models/player.dart';
 import '../models/resolved_event.dart';
 import '../models/saved_game.dart';
+import '../services/game_sync_service.dart';
 
 /// 試合入力画面の進行状態（打順・イニング・走者・名簿など）。
 ///
@@ -51,6 +54,13 @@ class GameSessionState {
   /// 新規にイベントを記録・削除するとやり直し先が失われるため空にする。
   final List<GameEvent> redoStack;
 
+  /// この端末が編集権限を持っているか。
+  ///
+  /// 試合の内容（[SavedGame]）には含まれない、端末ローカルな権限フラグ。
+  /// 編集キーを未入力・不一致のまま開いた場合は閲覧のみとなり、
+  /// UI側で変更系の操作を無効化する。
+  final bool canEdit;
+
   const GameSessionState({
     required this.gameEvents,
     required this.nextEventId,
@@ -69,30 +79,17 @@ class GameSessionState {
     required this.currentPitcherIdBottom,
     required this.replay,
     this.redoStack = const [],
+    this.canEdit = true,
   });
 
   factory GameSessionState.initial() {
     final playersTop = [
-      Player(id: 't1', name: '佐藤', position: '遊'),
-      Player(id: 't2', name: '鈴木', position: '中'),
-      Player(id: 't3', name: '高橋', position: '右'),
-      Player(id: 't4', name: '田中', position: '一'),
-      Player(id: 't5', name: '渡辺', position: '三'),
-      Player(id: 't6', name: '伊藤', position: '左'),
-      Player(id: 't7', name: '山本', position: '捕'),
-      Player(id: 't8', name: '中村', position: '二'),
-      Player(id: 't9', name: '小林', position: '投'),
+      for (var i = 1; i <= 9; i++)
+        Player(id: 't$i', name: '選手名$i', position: ''),
     ];
     final playersBottom = [
-      Player(id: 'b1', name: '大谷', position: '中'),
-      Player(id: 'b2', name: 'イチロー', position: '右'),
-      Player(id: 'b3', name: '松井', position: '左'),
-      Player(id: 'b4', name: '王', position: '一'),
-      Player(id: 'b5', name: '長嶋', position: '三'),
-      Player(id: 'b6', name: '野村', position: '捕'),
-      Player(id: 'b7', name: '落合', position: '二'),
-      Player(id: 'b8', name: '坂本', position: '遊'),
-      Player(id: 'b9', name: 'ダルビッシュ', position: '投'),
+      for (var i = 1; i <= 9; i++)
+        Player(id: 'b$i', name: '選手名$i', position: ''),
     ];
     const totalInningsConfig = 7;
     const inning = 1;
@@ -110,15 +107,8 @@ class GameSessionState {
       cycleIndexBottom: 0,
       playersTop: playersTop,
       playersBottom: playersBottom,
-      currentPitcherIdTop: playersTop
-          .firstWhere((p) => p.position == '投', orElse: () => playersTop.last)
-          .id,
-      currentPitcherIdBottom: playersBottom
-          .firstWhere(
-            (p) => p.position == '投',
-            orElse: () => playersBottom.last,
-          )
-          .id,
+      currentPitcherIdTop: playersTop.last.id,
+      currentPitcherIdBottom: playersBottom.last.id,
       replay: replayGame(events: const [], minInnings: totalInningsConfig),
     );
   }
@@ -141,6 +131,7 @@ class GameSessionState {
     String? currentPitcherIdBottom,
     GameState? replay,
     List<GameEvent>? redoStack,
+    bool? canEdit,
   }) {
     return GameSessionState(
       gameEvents: gameEvents ?? this.gameEvents,
@@ -161,6 +152,7 @@ class GameSessionState {
           currentPitcherIdBottom ?? this.currentPitcherIdBottom,
       replay: replay ?? this.replay,
       redoStack: redoStack ?? this.redoStack,
+      canEdit: canEdit ?? this.canEdit,
     );
   }
 
@@ -275,6 +267,28 @@ class GameSessionState {
 class GameNotifier extends Notifier<GameSessionState> {
   @override
   GameSessionState build() => GameSessionState.initial();
+
+  StreamSubscription<SavedGame?>? _remoteSub;
+
+  /// 指定した試合のリアルタイム購読を開始する。他の編集者・閲覧者による
+  /// 変更が届くたびに [loadGame] で state を最新の内容に置き換える。
+  void connectToRemote(String gameId) {
+    _remoteSub?.cancel();
+    _remoteSub = ref
+        .read(gameSyncServiceProvider)
+        .watchGame(gameId)
+        .listen((saved) {
+          if (saved != null) {
+            loadGame(saved);
+          }
+        });
+  }
+
+  /// リアルタイム購読を終了する。画面を離れる際に必ず呼ぶこと。
+  void disconnectFromRemote() {
+    _remoteSub?.cancel();
+    _remoteSub = null;
+  }
 
   GameSessionState _recomputeReplay(GameSessionState s) {
     final replay = replayGame(
@@ -657,8 +671,16 @@ class GameNotifier extends Notifier<GameSessionState> {
       currentPitcherIdTop: saved.currentPitcherIdTop,
       currentPitcherIdBottom: saved.currentPitcherIdBottom,
       replay: GameState.initial(innings: saved.totalInningsConfig),
+      // 編集権限は端末ローカルな情報であり SavedGame には含まれないため、
+      // 読込前の値を引き継ぐ（リアルタイム更新の取り込みでリセットしない）。
+      canEdit: state.canEdit,
     );
     state = _recomputeReplay(placeholder);
+  }
+
+  /// 端末がこの試合の編集権限を持っているかどうかを設定する。
+  void setCanEdit(bool value) {
+    state = state.copyWith(canEdit: value);
   }
 
   /// 現在の状態を保存用スナップショットに変換する。
@@ -735,8 +757,8 @@ class GameNotifier extends Notifier<GameSessionState> {
     final list = toTopTeam ? s.playersTop : s.playersBottom;
     final newPlayer = Player(
       id: '${toTopTeam ? "t" : "b"}${list.length + 1}',
-      name: '選手${list.length + 1}',
-      position: '指',
+      name: '選手名${list.length + 1}',
+      position: '',
     );
     state = toTopTeam
         ? s.copyWith(playersTop: [...list, newPlayer])

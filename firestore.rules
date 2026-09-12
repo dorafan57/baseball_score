@@ -1,0 +1,56 @@
+rules_version = '2';
+
+// 複数人同時編集用のルール。
+//
+// - games/{gameId}            試合本体（誰でも閲覧可）
+// - games/{gameId}/secret/config  編集キーのハッシュ（誰も読めない）
+// - games/{gameId}/editors/{uid}  編集権限（本人だけが読める）
+//
+// 詳細な設計意図は TODO.md / 実装コメント（lib/services/game_sync_service.dart）を参照。
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isEditor(gameId) {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/games/$(gameId)/editors/$(request.auth.uid));
+    }
+
+    function onlySortOrderChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['sortOrder', 'updatedAt']);
+    }
+
+    function versionIncrementedByOne() {
+      return request.resource.data.docVersion == resource.data.docVersion + 1;
+    }
+
+    match /games/{gameId} {
+      allow read: if true;
+
+      allow create: if request.resource.data.docVersion == 0 && isEditor(gameId);
+
+      allow update: if onlySortOrderChanged()
+        || (isEditor(gameId) && versionIncrementedByOne());
+
+      allow delete: if isEditor(gameId);
+
+      match /secret/config {
+        allow read: if false;
+        allow create: if request.resource.data.keys().hasOnly(['editKeyHash'])
+          && request.resource.data.editKeyHash is string
+          && request.resource.data.editKeyHash.size() == 64;
+        allow update, delete: if false;
+      }
+
+      match /editors/{uid} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow create: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['grantedAt', 'attemptedHash'])
+          && request.resource.data.attemptedHash ==
+             get(/databases/$(database)/documents/games/$(gameId)/secret/config).data.editKeyHash;
+        allow update: if false;
+        allow delete: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+  }
+}
