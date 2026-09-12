@@ -228,8 +228,18 @@ void showGroundOutDialog(
                     return SimpleDialogOption(
                       onPressed: () {
                         Navigator.pop(dirCtx);
+                        // 打者自身のアウト（このダイアログでは常に1つ発生する）だけで
+                        // 3アウト目が成立する場合はタイムプレイの例外により得点無効。
+                        // 封殺・本塁憤死など打者以外の走者アウトが絡んで3アウト目に
+                        // なる場合は従来通り得点を有効とする。
+                        final hasExtraRunnerOut = r3Out || r2Out || r1Out;
+                        final invalidatedByTimingRule =
+                            !hasExtraRunnerOut &&
+                            (session.outs + outsAdded >= 3);
+                        final finalRuns = invalidatedByTimingRule ? 0 : runs;
+                        final finalRbi = invalidatedByTimingRule ? 0 : rbi;
                         List<String> scoredIds = [];
-                        if (runs > 0 && runners.runner3rd != null) {
+                        if (finalRuns > 0 && runners.runner3rd != null) {
                           scoredIds.add(runners.runner3rd!);
                         }
                         notifier.applyCustomHitResult(
@@ -240,8 +250,8 @@ void showGroundOutDialog(
                             runner2nd: new2nd,
                             runner3rd: new3rd,
                           ),
-                          runs,
-                          rbi,
+                          finalRuns,
+                          finalRbi,
                           scoredIds,
                           outsAdded: outsAdded,
                         );
