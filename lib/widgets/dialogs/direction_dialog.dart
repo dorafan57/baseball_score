@@ -32,6 +32,7 @@ void promptDirectionAndRecord(
     }
     showDoublePlayRouteDialog(
       context,
+      session: session,
       notifier: notifier,
       errorPlayerId: errorPlayerId,
     );
