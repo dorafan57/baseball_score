@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../models/saved_game.dart';
 import '../providers/game_provider.dart';
 import '../services/game_sync_service.dart';
+import '../widgets/dialogs/admin_key_dialog.dart';
 import '../widgets/dialogs/edit_key_gate_dialog.dart';
 import '../widgets/dialogs/new_game_dialog.dart';
 
@@ -61,6 +62,9 @@ class _GameListScreenState extends ConsumerState<GameListScreen> {
   /// まだ編集権限を持っていなければ、鍵入力ダイアログで編集権限を得るか
   /// 閲覧のみで続けるかを確認する。戻り値は最終的な編集可否。
   Future<bool> _resolveCanEdit(String gameId) async {
+    if (await _sync.isAdmin()) {
+      return true;
+    }
     if (await _sync.isEditor(gameId)) {
       return true;
     }
@@ -118,6 +122,16 @@ class _GameListScreenState extends ConsumerState<GameListScreen> {
     }
   }
 
+  Future<void> _showAdminKeyDialog() async {
+    final unlocked = await showAdminKeyDialog(context, sync: _sync);
+    if (!mounted || unlocked != true) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('管理者権限を取得しました。')));
+  }
+
   Future<void> _reorderGames(int oldIndex, int newIndex) async {
     final games = _savedGames;
     if (games == null) {
@@ -143,6 +157,13 @@ class _GameListScreenState extends ConsumerState<GameListScreen> {
         ),
         backgroundColor: const Color(0xFF1B5E20),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.admin_panel_settings),
+            tooltip: '管理者キーを入力',
+            onPressed: _showAdminKeyDialog,
+          ),
+        ],
       ),
       body: games == null
           ? const Center(child: CircularProgressIndicator())

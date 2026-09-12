@@ -50,6 +50,13 @@ abstract class GameSyncService {
   /// [editKey] が正しければ編集権限を取得して true を返す。
   /// 誤っていれば false を返す（例外にはしない）。
   Future<bool> tryUnlockEditor(String gameId, String editKey);
+
+  /// この端末が、全試合共通の管理者権限をすでに持っているか。
+  Future<bool> isAdmin();
+
+  /// [adminKey] が正しければ管理者権限（全試合の編集権限）を取得して
+  /// true を返す。誤っていれば false を返す（例外にはしない）。
+  Future<bool> tryUnlockAdmin(String adminKey);
 }
 
 /// 試合データを Firestore（`games` コレクション）へ保存・読込するサービス。
@@ -162,6 +169,31 @@ class FirestoreGameSyncService implements GameSyncService {
       await _games.doc(gameId).collection('editors').doc(_uid).set({
         'grantedAt': FieldValue.serverTimestamp(),
         'attemptedHash': hashEditKey(editKey),
+      });
+      return true;
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        return false;
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<bool> isAdmin() async {
+    final doc = await FirebaseFirestore.instance
+        .collection('admins')
+        .doc(_uid)
+        .get();
+    return doc.exists;
+  }
+
+  @override
+  Future<bool> tryUnlockAdmin(String adminKey) async {
+    try {
+      await FirebaseFirestore.instance.collection('admins').doc(_uid).set({
+        'grantedAt': FieldValue.serverTimestamp(),
+        'attemptedHash': hashEditKey(adminKey),
       });
       return true;
     } on FirebaseException catch (e) {

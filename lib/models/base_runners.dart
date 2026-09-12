@@ -32,6 +32,9 @@ class BaseRunners {
 
   bool get isNotEmpty => !isEmpty;
 
+  /// 得点圏（2塁または3塁に走者）かどうか。
+  bool get hasRunnerInScoringPosition => runner2nd != null || runner3rd != null;
+
   /// 塁上の走者数（0〜3）。
   int get count =>
       (runner1st != null ? 1 : 0) +

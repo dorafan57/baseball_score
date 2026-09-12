@@ -5,14 +5,24 @@ rules_version = '2';
 // - games/{gameId}            試合本体（誰でも閲覧可）
 // - games/{gameId}/secret/config  編集キーのハッシュ（誰も読めない）
 // - games/{gameId}/editors/{uid}  編集権限（本人だけが読める）
+// - config/adminKey           全試合共通の管理者キーのハッシュ（誰も読めない。
+//                             アプリからは書き込めず、Firebaseコンソールから
+//                             手動で1回だけ登録する運用。TODO.md参照）
+// - admins/{uid}              管理者権限（本人だけが読める。全試合に効く）
 //
 // 詳細な設計意図は TODO.md / 実装コメント（lib/services/game_sync_service.dart）を参照。
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
     function isEditor(gameId) {
       return request.auth != null &&
-        exists(/databases/$(database)/documents/games/$(gameId)/editors/$(request.auth.uid));
+        (exists(/databases/$(database)/documents/games/$(gameId)/editors/$(request.auth.uid))
+         || isAdmin());
     }
 
     function onlySortOrderChanged() {
@@ -22,6 +32,21 @@ service cloud.firestore {
 
     function versionIncrementedByOne() {
       return request.resource.data.docVersion == resource.data.docVersion + 1;
+    }
+
+    match /config/adminKey {
+      allow read: if false;
+      allow create, update, delete: if false;
+    }
+
+    match /admins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['grantedAt', 'attemptedHash'])
+        && request.resource.data.attemptedHash ==
+           get(/databases/$(database)/documents/config/adminKey).data.adminKeyHash;
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == uid;
     }
 
     match /games/{gameId} {

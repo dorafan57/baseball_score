@@ -108,3 +108,53 @@ Firebase（Firestore + 匿名認証）を導入し、以下を実装済み:
   （ルール・トランザクション）は自動テスト対象外。実機での手動確認に依存する。
 - 編集キーの強度はクライアント側の入力チェックのみで、サーバー側での
   複雑さ強制はない（カジュアルな共有スコアブックとして妥当な水準と判断）。
+
+### 成績拡充・ボックススコア・エクスポート・管理者モード（対応済み）
+
+- `PlayerStats` に出塁率（`onBasePercentage`）・長打率（`sluggingPercentage`）・
+  OPS（`ops`）・得点圏打率（`rispBattingAverage`）を追加
+  （`lib/models/player_stats.dart` / `lib/models/base_runners.dart`）。
+- `lib/logic/box_score_report.dart` に、ラインスコア＋両チームの打者・投手
+  成績をまとめた `BoxScoreReport` を組み立てる純粋関数を追加。
+  画面表示（`lib/widgets/stats/box_score_view.dart`）とPDF/Excel出力の
+  共通データソースとして使う。
+- スコア入力画面のAppBarに「ボックススコア・エクスポート」アイコンを追加し、
+  `lib/widgets/dialogs/box_score_dialog.dart` からPDF/Excel書き出しができる
+  （`lib/services/pdf_export_service.dart` / `excel_export_service.dart`）。
+  PDFは`printing`パッケージの`PdfGoogleFonts`でNoto Sans JPを実行時取得
+  （初回はネットワーク接続が必要）。書き出しは`share_plus`の
+  `Share.shareXFiles`を使い、Web版ブラウザではダウンロードにフォールバックする。
+- 管理者モード（全試合共通のマスターキーで、編集キーなしにどの試合も
+  編集できる権限）を追加。`firestore.rules` の `isEditor()` に
+  `isAdmin()`（`admins/{uid}` の存在確認）をOR条件で追加し、
+  試合一覧画面の「管理者キーを入力」アイコン（`admin_key_dialog.dart`）から
+  取得できる。
+
+#### 管理者キーのセットアップ手順（初回のみ・手動）
+
+アプリからは `config/adminKey` ドキュメントを書き込めない設計にしている
+（「最初にアクセスした人が管理者キーを乗っ取れてしまう」ことを防ぐため）。
+そのため、以下の手順で運営者が手動で1回だけ登録する。
+
+1. 管理者キーにしたい文字列を決める。
+2. `lib/utils/edit_key_hash.dart` の `hashEditKey()` と同じ
+   SHA-256で、そのキーのハッシュ値（16進数64文字）を計算する
+   （例: `dart run` で `print(hashEditKey('決めたキー'));` を実行するだけの
+   一時スクリプトを書いて実行し、値を確認したら削除する）。
+3. Firebaseコンソール → Firestore Database → `config` コレクション →
+   ドキュメントID `adminKey` を作成し、フィールド `adminKeyHash`
+   （文字列）に2.のハッシュ値を設定する。
+4. `firestore.rules` の変更（`isAdmin()` 関数・`config/adminKey` /
+   `admins/{uid}` のルール追加）を
+   `firebase deploy --only firestore:rules` でデプロイする
+   （このコマンドは各自の環境から実行すること。CIには含めていない）。
+5. 管理者キーをローテーションしたい場合は、3.の `adminKeyHash` を
+   Firebaseコンソールから書き換える（ルールで `update` を禁止しているため、
+   一度削除してから作り直す）。既存の `admins/{uid}` は無効化されないため、
+   権限を剥奪したい相手がいる場合は該当ドキュメントも合わせて削除する。
+
+#### 残課題（対応保留）
+
+- PDF/Excelのバイト列生成そのものは自動テストが薄い
+  （`BoxScoreReport` を組み立てるロジックまではテスト済み）。
+  レイアウト崩れ等はWebでの手動確認に依存する。

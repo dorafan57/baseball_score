@@ -34,10 +34,13 @@ lib/models/     at_bat_result / base_runners / game_event / resolved_event
                 player / player_stats / game_state / saved_game
 lib/logic/      advance_calculator.dart  … 標準的な進塁計算（純粋関数）
                 game_replay.dart         … replayGame(): イベント列→全成績（純粋関数）
+                box_score_report.dart    … BoxScoreReport組み立て（表示/PDF/Excel共通、純粋関数）
 lib/providers/  game_provider.dart       … GameSessionState / GameNotifier
                                             （同期・楽観的排他制御込み）
 lib/services/   game_sync_service.dart   … Firestoreへの保存・読込・購読、
-                                            編集キー／編集権限の検証
+                                            編集キー／編集権限／管理者権限の検証
+                pdf_export_service.dart  … ボックススコアのPDF生成（printing/PdfGoogleFonts）
+                excel_export_service.dart… ボックススコアのxlsx生成
 lib/utils/      edit_key_hash.dart       … 編集キーのSHA-256ハッシュ化
 lib/firebase_options_web.dart … --dart-define から FirebaseOptions を組み立て
 lib/router.dart … go_router のルート定義（'/' と '/game/:gameId'）
@@ -45,11 +48,11 @@ lib/app.dart    … BaseballScoreApp（テーマ・ダークテーマ・最大�
 lib/main.dart   … main()。Firebase初期化・匿名認証を行ってから起動する
 lib/screens/    game_list_screen / score_input_screen
 lib/widgets/    board/  … 盤面入力タブとその部品
-                stats/  … スコア・成績タブとその部品
-                dialogs/… 1ダイアログ1ファイル
-firestore.rules … 編集キー・編集権限・楽観的排他制御のルール定義
+                stats/  … スコア・成績タブとその部品、box_score_view.dart（ボックススコア表示）
+                dialogs/… 1ダイアログ1ファイル（admin_key_dialog / box_score_dialog 含む）
+firestore.rules … 編集キー・編集権限・管理者権限・楽観的排他制御のルール定義
 test/logic/     … ロジックの単体テスト
-test/models/    … JSON 変換のテスト
+test/models/    … JSON 変換・PlayerStats集計のテスト
 test/utils/     … edit_key_hash のテスト
 test/widget_test.dart … 画面の回帰テスト（GameSyncService はフェイク実装で上書き）
 ```
@@ -88,6 +91,11 @@ test/widget_test.dart … 画面の回帰テスト（GameSyncService はフェ�
 - `test/widget_test.dart` の `FakeGameSyncService` は実際のFirestoreに繋がない
   インメモリ実装。新しいテストもこれを使い、実FirebaseへのアクセスはWebで
   手動確認する（Firebase Local Emulator Suiteは未導入）。
+- 管理者モード：全試合共通のマスターキーを知っている端末は、個別の編集キー
+  なしにどの試合も編集できる（`admins/{uid}` の有無を `firestore.rules` の
+  `isEditor()` がOR条件で見る）。マスターキーのハッシュ（`config/adminKey`）
+  はアプリからは書き込めず、Firebaseコンソールから手動で1回だけ登録する
+  運用（セットアップ手順は [TODO.md](TODO.md) 参照）。
 
 ## 作業前後に必ず実行
 

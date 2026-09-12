@@ -93,106 +93,92 @@ class ScoreStatsTab extends StatelessWidget {
           ),
           const SizedBox(height: 4),
 
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Scrollbar(
-              thumbVisibility: true,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Table(
-                  defaultColumnWidth: const FixedColumnWidth(32),
-                  columnWidths: const {0: FixedColumnWidth(110)},
-                  border: TableBorder.all(
-                    color: Colors.grey.shade300,
-                    width: 0.8,
-                  ),
+          HorizontalScrollTable(
+            table: Table(
+              defaultColumnWidth: const FixedColumnWidth(32),
+              columnWidths: const {0: FixedColumnWidth(110)},
+              border: TableBorder.all(color: Colors.grey.shade300, width: 0.8),
+              children: [
+                TableRow(
+                  decoration: const BoxDecoration(color: Color(0xFF0D2E14)),
                   children: [
-                    TableRow(
-                      decoration: const BoxDecoration(color: Color(0xFF0D2E14)),
-                      children: [
-                        StatsHeaderCell('チーム (移動)'),
-                        ...List.generate(
-                          displayInnings,
-                          (i) => StatsHeaderCell('${i + 1}'),
-                        ),
-                        StatsHeaderCell('R'),
-                        StatsHeaderCell('H'),
-                        StatsHeaderCell('E'),
-                      ],
+                    StatsHeaderCell('チーム (移動)'),
+                    ...List.generate(
+                      displayInnings,
+                      (i) => StatsHeaderCell('${i + 1}'),
                     ),
-                    TableRow(
-                      decoration: const BoxDecoration(color: Colors.white),
-                      children: [
-                        StatsDataCell(teamNameTop, isBold: true),
-                        ...List.generate(displayInnings, (i) {
-                          int inn = i + 1;
-                          bool isCurrent = (inning == inn && isTop);
-                          return InkWell(
-                            onTap: () {
-                              onJumpToInning(inn, true);
-                            },
-                            child: Container(
-                              color: isCurrent
-                                  ? Colors.amber.shade200
-                                  : Colors.transparent,
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              alignment: Alignment.center,
-                              child: Text(
-                                '${scoresTop.length > i ? scoresTop[i] : 0}',
-                                style: TextStyle(
-                                  fontWeight: isCurrent
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                        StatsDataCell('$totalScoreTop', isBold: true),
-                        StatsDataCell('$totalHitsTop', isBold: true),
-                        StatsDataCell('$errorsTop'),
-                      ],
-                    ),
-                    TableRow(
-                      decoration: const BoxDecoration(color: Colors.white),
-                      children: [
-                        StatsDataCell(teamNameBottom, isBold: true),
-                        ...List.generate(displayInnings, (i) {
-                          int inn = i + 1;
-                          bool isCurrent = (inning == inn && !isTop);
-                          return InkWell(
-                            onTap: () {
-                              onJumpToInning(inn, false);
-                            },
-                            child: Container(
-                              color: isCurrent
-                                  ? Colors.amber.shade200
-                                  : Colors.transparent,
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              alignment: Alignment.center,
-                              child: Text(
-                                '${scoresBottom.length > i ? scoresBottom[i] : 0}',
-                                style: TextStyle(
-                                  fontWeight: isCurrent
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                        StatsDataCell('$totalScoreBottom', isBold: true),
-                        StatsDataCell('$totalHitsBottom', isBold: true),
-                        StatsDataCell('$errorsBottom'),
-                      ],
-                    ),
+                    StatsHeaderCell('R'),
+                    StatsHeaderCell('H'),
+                    StatsHeaderCell('E'),
                   ],
                 ),
-              ),
+                TableRow(
+                  decoration: const BoxDecoration(color: Colors.white),
+                  children: [
+                    StatsDataCell(teamNameTop, isBold: true),
+                    ...List.generate(displayInnings, (i) {
+                      int inn = i + 1;
+                      bool isCurrent = (inning == inn && isTop);
+                      return InkWell(
+                        onTap: () {
+                          onJumpToInning(inn, true);
+                        },
+                        child: Container(
+                          color: isCurrent
+                              ? Colors.amber.shade200
+                              : Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '${scoresTop.length > i ? scoresTop[i] : 0}',
+                            style: TextStyle(
+                              fontWeight: isCurrent
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                    StatsDataCell('$totalScoreTop', isBold: true),
+                    StatsDataCell('$totalHitsTop', isBold: true),
+                    StatsDataCell('$errorsTop'),
+                  ],
+                ),
+                TableRow(
+                  decoration: const BoxDecoration(color: Colors.white),
+                  children: [
+                    StatsDataCell(teamNameBottom, isBold: true),
+                    ...List.generate(displayInnings, (i) {
+                      int inn = i + 1;
+                      bool isCurrent = (inning == inn && !isTop);
+                      return InkWell(
+                        onTap: () {
+                          onJumpToInning(inn, false);
+                        },
+                        child: Container(
+                          color: isCurrent
+                              ? Colors.amber.shade200
+                              : Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '${scoresBottom.length > i ? scoresBottom[i] : 0}',
+                            style: TextStyle(
+                              fontWeight: isCurrent
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                    StatsDataCell('$totalScoreBottom', isBold: true),
+                    StatsDataCell('$totalHitsBottom', isBold: true),
+                    StatsDataCell('$errorsBottom'),
+                  ],
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 12),
@@ -227,220 +213,197 @@ class ScoreStatsTab extends StatelessWidget {
           ),
           const SizedBox(height: 6),
 
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Scrollbar(
-              thumbVisibility: true,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Table(
-                  defaultColumnWidth: const FixedColumnWidth(38),
-                  columnWidths: const {
-                    0: FixedColumnWidth(28),
-                    1: FixedColumnWidth(80),
-                  },
-                  border: TableBorder.all(
-                    color: Colors.grey.shade300,
-                    width: 0.8,
+          HorizontalScrollTable(
+            table: Table(
+              defaultColumnWidth: const FixedColumnWidth(38),
+              columnWidths: const {
+                0: FixedColumnWidth(28),
+                1: FixedColumnWidth(80),
+              },
+              border: TableBorder.all(color: Colors.grey.shade300, width: 0.8),
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(
+                    color: (teamIndex == 0)
+                        ? const Color(0xFF1B5E20)
+                        : const Color(0xFF2E7D32),
                   ),
                   children: [
-                    TableRow(
-                      decoration: BoxDecoration(
-                        color: (teamIndex == 0)
-                            ? const Color(0xFF1B5E20)
-                            : const Color(0xFF2E7D32),
-                      ),
-                      children: [
-                        StatsHeaderCell('順'),
-                        StatsHeaderCell('選手名'),
-                        ...List.generate(
-                          displayInnings,
-                          (i) => StatsHeaderCell('${i + 1}回'),
-                        ),
-                        StatsHeaderCell('打席'),
-                        StatsHeaderCell('打数'),
-                        StatsHeaderCell('安打'),
-                        StatsHeaderCell('２塁'),
-                        StatsHeaderCell('３塁'),
-                        StatsHeaderCell('本塁'),
-                        StatsHeaderCell('打点'),
-                        StatsHeaderCell('得点'),
-                        StatsHeaderCell('盗塁'),
-                        StatsHeaderCell('四球'),
-                        StatsHeaderCell('死球'),
-                        StatsHeaderCell('犠打'),
-                        StatsHeaderCell('犠飛'),
-                        StatsHeaderCell('三振'),
-                        StatsHeaderCell('敵失'),
-                        StatsHeaderCell('打率'),
-                        StatsHeaderCell('失策'),
-                      ],
+                    StatsHeaderCell('順'),
+                    StatsHeaderCell('選手名'),
+                    ...List.generate(
+                      displayInnings,
+                      (i) => StatsHeaderCell('${i + 1}回'),
                     ),
-                    ...activeBatters.asMap().entries.map((entry) {
-                      int bIdx = entry.key;
-                      Player b = entry.value;
+                    StatsHeaderCell('打席'),
+                    StatsHeaderCell('打数'),
+                    StatsHeaderCell('安打'),
+                    StatsHeaderCell('２塁'),
+                    StatsHeaderCell('３塁'),
+                    StatsHeaderCell('本塁'),
+                    StatsHeaderCell('打点'),
+                    StatsHeaderCell('得点'),
+                    StatsHeaderCell('盗塁'),
+                    StatsHeaderCell('四球'),
+                    StatsHeaderCell('死球'),
+                    StatsHeaderCell('犠打'),
+                    StatsHeaderCell('犠飛'),
+                    StatsHeaderCell('三振'),
+                    StatsHeaderCell('敵失'),
+                    StatsHeaderCell('打率'),
+                    StatsHeaderCell('失策'),
+                  ],
+                ),
+                ...activeBatters.asMap().entries.map((entry) {
+                  int bIdx = entry.key;
+                  Player b = entry.value;
 
-                      return TableRow(
-                        decoration: BoxDecoration(
-                          color: (bIdx % 2 == 0)
-                              ? Colors.white
-                              : Colors.grey.shade50,
-                        ),
-                        children: [
-                          StatsDataCell('${bIdx + 1}', isBold: true),
-                          StatsDataCell(
-                            '${b.name} (${b.positionLabel})',
-                            isBold: true,
-                          ),
-                          ...List.generate(displayInnings, (innIdx) {
-                            int currentInn = innIdx + 1;
-                            final pas = b.stats.appearances
-                                .where((p) => p.inning == currentInn)
-                                .toList();
-                            if (pas.isEmpty) {
-                              return StatsDataCell('-');
-                            }
-                            bool hasHit = pas.any(
-                              (p) => p.result != null && p.result!.isHit,
-                            );
-                            String text = pas
-                                .map(
-                                  (p) =>
-                                      '${p.displayShortLabel}${p.rbi > 0 ? " [${p.rbi}]" : ""}',
-                                )
-                                .join('\n');
+                  return TableRow(
+                    decoration: BoxDecoration(
+                      color: (bIdx % 2 == 0)
+                          ? Colors.white
+                          : Colors.grey.shade50,
+                    ),
+                    children: [
+                      StatsDataCell('${bIdx + 1}', isBold: true),
+                      StatsDataCell(
+                        '${b.name} (${b.positionLabel})',
+                        isBold: true,
+                      ),
+                      ...List.generate(displayInnings, (innIdx) {
+                        int currentInn = innIdx + 1;
+                        final pas = b.stats.appearances
+                            .where((p) => p.inning == currentInn)
+                            .toList();
+                        if (pas.isEmpty) {
+                          return StatsDataCell('-');
+                        }
+                        bool hasHit = pas.any(
+                          (p) => p.result != null && p.result!.isHit,
+                        );
+                        String text = pas
+                            .map(
+                              (p) =>
+                                  '${p.displayShortLabel}${p.rbi > 0 ? " [${p.rbi}]" : ""}',
+                            )
+                            .join('\n');
 
-                            return StatsDataCell(text, isBold: hasHit);
-                          }),
-                          StatsDataCell('${b.stats.pa}'),
-                          StatsDataCell('${b.stats.ab}'),
-                          StatsDataCell('${b.stats.hits}', isBold: true),
-                          StatsDataCell('${b.stats.doubles}'),
-                          StatsDataCell('${b.stats.triples}'),
-                          StatsDataCell(
-                            '${b.stats.hr}',
-                            isBold: b.stats.hr > 0,
-                          ),
-                          StatsDataCell(
-                            '${b.stats.rbi}',
-                            isBold: b.stats.rbi > 0,
-                          ),
-                          StatsDataCell(
-                            '${b.stats.runsScored}',
-                            isBold: b.stats.runsScored > 0,
-                          ),
-                          StatsDataCell(
-                            '${b.stats.sb}',
-                            isBold: b.stats.sb > 0,
-                          ),
-                          StatsDataCell('${b.stats.bb}'),
-                          StatsDataCell('${b.stats.hbp}'),
-                          StatsDataCell('${b.stats.sh}'),
-                          StatsDataCell('${b.stats.sf}'),
-                          StatsDataCell('${b.stats.so}'),
-                          StatsDataCell('${b.stats.roe}'),
-                          StatsDataCell(b.stats.battingAverage, isBold: true),
-                          StatsDataCell('${b.stats.errorsCommitted}'),
-                        ],
+                        return StatsDataCell(text, isBold: hasHit);
+                      }),
+                      StatsDataCell('${b.stats.pa}'),
+                      StatsDataCell('${b.stats.ab}'),
+                      StatsDataCell('${b.stats.hits}', isBold: true),
+                      StatsDataCell('${b.stats.doubles}'),
+                      StatsDataCell('${b.stats.triples}'),
+                      StatsDataCell('${b.stats.hr}', isBold: b.stats.hr > 0),
+                      StatsDataCell('${b.stats.rbi}', isBold: b.stats.rbi > 0),
+                      StatsDataCell(
+                        '${b.stats.runsScored}',
+                        isBold: b.stats.runsScored > 0,
+                      ),
+                      StatsDataCell('${b.stats.sb}', isBold: b.stats.sb > 0),
+                      StatsDataCell('${b.stats.bb}'),
+                      StatsDataCell('${b.stats.hbp}'),
+                      StatsDataCell('${b.stats.sh}'),
+                      StatsDataCell('${b.stats.sf}'),
+                      StatsDataCell('${b.stats.so}'),
+                      StatsDataCell('${b.stats.roe}'),
+                      StatsDataCell(b.stats.battingAverage, isBold: true),
+                      StatsDataCell('${b.stats.errorsCommitted}'),
+                    ],
+                  );
+                }),
+                // チーム合計行
+                TableRow(
+                  decoration: const BoxDecoration(color: Color(0xFFE8F5E9)),
+                  children: [
+                    StatsDataCell('計', isBold: true),
+                    StatsDataCell('-', isBold: true),
+                    ...List.generate(displayInnings, (innIdx) {
+                      int currentInn = innIdx + 1;
+                      int innRuns = isTop
+                          ? (scoresTop.length >= currentInn
+                                ? scoresTop[currentInn - 1]
+                                : 0)
+                          : (scoresBottom.length >= currentInn
+                                ? scoresBottom[currentInn - 1]
+                                : 0);
+                      return StatsDataCell(
+                        innRuns > 0 ? '$innRuns' : '-',
+                        isBold: true,
                       );
                     }),
-                    // チーム合計行
-                    TableRow(
-                      decoration: const BoxDecoration(color: Color(0xFFE8F5E9)),
-                      children: [
-                        StatsDataCell('計', isBold: true),
-                        StatsDataCell('-', isBold: true),
-                        ...List.generate(displayInnings, (innIdx) {
-                          int currentInn = innIdx + 1;
-                          int innRuns = isTop
-                              ? (scoresTop.length >= currentInn
-                                    ? scoresTop[currentInn - 1]
-                                    : 0)
-                              : (scoresBottom.length >= currentInn
-                                    ? scoresBottom[currentInn - 1]
-                                    : 0);
-                          return StatsDataCell(
-                            innRuns > 0 ? '$innRuns' : '-',
-                            isBold: true,
-                          );
-                        }),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.pa)}',
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.ab)}',
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.hits)}',
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.doubles)}',
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.triples)}',
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.hr)}',
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.rbi)}',
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.runsScored)}',
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.sb)}',
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.bb)}',
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.hbp)}',
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.sh)}',
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.sf)}',
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.so)}',
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.roe)}',
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          _teamBattingAverage(activeBatters),
-                          isBold: true,
-                        ),
-                        StatsDataCell(
-                          '${activeBatters.fold(0, (s, b) => s + b.stats.errorsCommitted)}',
-                          isBold: true,
-                        ),
-                      ],
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.pa)}',
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.ab)}',
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.hits)}',
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.doubles)}',
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.triples)}',
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.hr)}',
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.rbi)}',
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.runsScored)}',
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.sb)}',
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.bb)}',
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.hbp)}',
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.sh)}',
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.sf)}',
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.so)}',
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.roe)}',
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      _teamBattingAverage(activeBatters),
+                      isBold: true,
+                    ),
+                    StatsDataCell(
+                      '${activeBatters.fold(0, (s, b) => s + b.stats.errorsCommitted)}',
+                      isBold: true,
                     ),
                   ],
                 ),
-              ),
+              ],
             ),
           ),
           const SizedBox(height: 18),
@@ -463,85 +426,63 @@ class ScoreStatsTab extends StatelessWidget {
           ),
           const SizedBox(height: 6),
 
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Scrollbar(
-              thumbVisibility: true,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Table(
-                  defaultColumnWidth: const FixedColumnWidth(44),
-                  columnWidths: const {0: FixedColumnWidth(90)},
-                  border: TableBorder.all(
-                    color: Colors.grey.shade300,
-                    width: 0.8,
+          HorizontalScrollTable(
+            table: Table(
+              defaultColumnWidth: const FixedColumnWidth(44),
+              columnWidths: const {0: FixedColumnWidth(90)},
+              border: TableBorder.all(color: Colors.grey.shade300, width: 0.8),
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(
+                    color: (teamIndex == 0)
+                        ? const Color(0xFF1B5E20)
+                        : const Color(0xFF2E7D32),
                   ),
                   children: [
-                    TableRow(
-                      decoration: BoxDecoration(
-                        color: (teamIndex == 0)
-                            ? const Color(0xFF1B5E20)
-                            : const Color(0xFF2E7D32),
-                      ),
-                      children: [
-                        StatsHeaderCell('投手名'),
-                        StatsHeaderCell('回数'),
-                        StatsHeaderCell('打者'),
-                        StatsHeaderCell('安打'),
-                        StatsHeaderCell('本塁'),
-                        StatsHeaderCell('三振'),
-                        StatsHeaderCell('四球'),
-                        StatsHeaderCell('死球'),
-                        StatsHeaderCell('失点'),
-                        StatsHeaderCell('自責'),
-                        StatsHeaderCell('防御率'),
-                      ],
-                    ),
-                    ...activePitchers
-                        .where(
-                          (p) =>
-                              p.stats.pitchingEvents.isNotEmpty ||
-                              p.position == '投',
-                        )
-                        .map((p) {
-                          final pStats = p.stats.pitching;
-                          return TableRow(
-                            children: [
-                              StatsDataCell(
-                                '${p.name} (${p.positionLabel})',
-                                isBold: true,
-                              ),
-                              StatsDataCell(
-                                pStats.inningsPitched,
-                                isBold: true,
-                              ),
-                              StatsDataCell('${pStats.battersFaced}'),
-                              StatsDataCell('${pStats.hitsAllowed}'),
-                              StatsDataCell('${pStats.hrAllowed}'),
-                              StatsDataCell('${pStats.strikeouts}'),
-                              StatsDataCell('${pStats.walks}'),
-                              StatsDataCell('${pStats.hitByPitch}'),
-                              StatsDataCell('${pStats.runsAllowed}'),
-                              StatsDataCell(
-                                '${pStats.earnedRuns}',
-                                isBold: true,
-                              ),
-                              StatsDataCell(
-                                pStats.era(
-                                  regulationInnings: totalInningsConfig,
-                                ),
-                                isBold: true,
-                              ),
-                            ],
-                          );
-                        }),
+                    StatsHeaderCell('投手名'),
+                    StatsHeaderCell('回数'),
+                    StatsHeaderCell('打者'),
+                    StatsHeaderCell('安打'),
+                    StatsHeaderCell('本塁'),
+                    StatsHeaderCell('三振'),
+                    StatsHeaderCell('四球'),
+                    StatsHeaderCell('死球'),
+                    StatsHeaderCell('失点'),
+                    StatsHeaderCell('自責'),
+                    StatsHeaderCell('防御率'),
                   ],
                 ),
-              ),
+                ...activePitchers
+                    .where(
+                      (p) =>
+                          p.stats.pitchingEvents.isNotEmpty ||
+                          p.position == '投',
+                    )
+                    .map((p) {
+                      final pStats = p.stats.pitching;
+                      return TableRow(
+                        children: [
+                          StatsDataCell(
+                            '${p.name} (${p.positionLabel})',
+                            isBold: true,
+                          ),
+                          StatsDataCell(pStats.inningsPitched, isBold: true),
+                          StatsDataCell('${pStats.battersFaced}'),
+                          StatsDataCell('${pStats.hitsAllowed}'),
+                          StatsDataCell('${pStats.hrAllowed}'),
+                          StatsDataCell('${pStats.strikeouts}'),
+                          StatsDataCell('${pStats.walks}'),
+                          StatsDataCell('${pStats.hitByPitch}'),
+                          StatsDataCell('${pStats.runsAllowed}'),
+                          StatsDataCell('${pStats.earnedRuns}', isBold: true),
+                          StatsDataCell(
+                            pStats.era(regulationInnings: totalInningsConfig),
+                            isBold: true,
+                          ),
+                        ],
+                      );
+                    }),
+              ],
             ),
           ),
           const SizedBox(height: 18),

@@ -50,6 +50,12 @@ class FakeGameSyncService implements GameSyncService {
 
   @override
   Future<bool> tryUnlockEditor(String gameId, String editKey) async => true;
+
+  @override
+  Future<bool> isAdmin() async => false;
+
+  @override
+  Future<bool> tryUnlockAdmin(String adminKey) async => true;
 }
 
 /// テスト用に [FakeGameSyncService] で上書きした [ProviderScope] を返す。

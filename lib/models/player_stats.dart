@@ -1,6 +1,20 @@
 import 'at_bat_result.dart';
 import 'resolved_event.dart';
 
+/// 打率・出塁率・長打率・OPS等の率を、打率表記に合わせて整形する。
+///
+/// `null`（分母0）は `.---`。1.000未満は先頭の`0`を落とす（`.350`）。
+/// OPS等で1.000以上になる場合は`1.024`のようにそのまま表示する。
+String _formatRate(double? value) {
+  if (value == null) {
+    return '.---';
+  }
+  if (value >= 1.0) {
+    return value.toStringAsFixed(3);
+  }
+  return value.toStringAsFixed(3).substring(1);
+}
+
 /// 投手成績。
 class PitcherStats {
   /// 奪ったアウト数（投球回の分子）。
@@ -115,16 +129,56 @@ class PlayerStats {
   /// 盗塁数。
   int get sb => baserunningEvents.where((e) => e.isSteal).length;
 
+  /// 塁打数（安打の `AtBatResult.bases` 合計）。
+  int get totalBases =>
+      appearances.fold(0, (sum, e) => sum + (e.result?.bases ?? 0));
+
+  /// 得点圏（2塁または3塁に走者）での打席のうち、打数にあたるもの。
+  List<ResolvedEvent> get _rispAtBats => appearances
+      .where(
+        (e) =>
+            (e.result?.isAtBat ?? false) &&
+            e.runnersBefore.hasRunnerInScoringPosition,
+      )
+      .toList();
+
+  double? get _battingAverageValue => ab == 0 ? null : hits / ab;
+
+  double? get _onBasePercentageValue {
+    final denom = ab + bb + hbp + sf;
+    return denom == 0 ? null : (hits + bb + hbp) / denom;
+  }
+
+  double? get _sluggingPercentageValue =>
+      ab == 0 ? null : totalBases / ab;
+
   /// 打率。打数0のときは `.---` を返す。
-  String get battingAverage {
-    if (ab == 0) {
+  String get battingAverage => _formatRate(_battingAverageValue);
+
+  /// 出塁率。(安打+四球+死球)/(打数+四球+死球+犠飛)。
+  String get onBasePercentage => _formatRate(_onBasePercentageValue);
+
+  /// 長打率。塁打数/打数。
+  String get sluggingPercentage => _formatRate(_sluggingPercentageValue);
+
+  /// OPS（出塁率+長打率）。
+  String get ops {
+    final obp = _onBasePercentageValue;
+    final slg = _sluggingPercentageValue;
+    if (obp == null || slg == null) {
       return '.---';
     }
-    final avg = hits / ab;
-    if (avg >= 1.0) {
-      return '1.000';
+    return _formatRate(obp + slg);
+  }
+
+  /// 得点圏打率。走者が2塁または3塁にいた打席のみを対象にした打率。
+  String get rispBattingAverage {
+    final atBats = _rispAtBats;
+    if (atBats.isEmpty) {
+      return '.---';
     }
-    return avg.toStringAsFixed(3).substring(1);
+    final hits = atBats.where((e) => e.result?.isHit ?? false).length;
+    return _formatRate(hits / atBats.length);
   }
 
   /// 投手成績を集計して返す。

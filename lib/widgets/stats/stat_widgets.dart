@@ -48,6 +48,49 @@ class StatsDataCell extends StatelessWidget {
   }
 }
 
+/// 横スクロール可能な表をCard＋Scrollbarで囲む。
+///
+/// `Scrollbar` は明示的な `ScrollController` を渡さないと
+/// `PrimaryScrollController` へ接続しようとするが、デスクトップ/Web環境では
+/// `ScrollView.primary` の既定値がモバイル限定のため何も接続されず
+/// 例外になる。専用の `ScrollController` を作って確実に接続する。
+class HorizontalScrollTable extends StatefulWidget {
+  final Widget table;
+
+  const HorizontalScrollTable({super.key, required this.table});
+
+  @override
+  State<HorizontalScrollTable> createState() => _HorizontalScrollTableState();
+}
+
+class _HorizontalScrollTableState extends State<HorizontalScrollTable> {
+  final _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      clipBehavior: Clip.antiAlias,
+      child: Scrollbar(
+        controller: _controller,
+        thumbVisibility: true,
+        child: SingleChildScrollView(
+          controller: _controller,
+          scrollDirection: Axis.horizontal,
+          child: widget.table,
+        ),
+      ),
+    );
+  }
+}
+
 /// 選手カード内に横並びで表示する「項目名＋値」1組。
 class StatItem extends StatelessWidget {
   final String label;

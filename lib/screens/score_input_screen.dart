@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../logic/box_score_report.dart';
 import '../models/game_event.dart';
 import '../models/game_state.dart';
 import '../providers/game_provider.dart';
 import '../widgets/board/input_tab.dart';
+import '../widgets/dialogs/box_score_dialog.dart';
 import '../widgets/dialogs/game_history_dialog.dart';
 import '../widgets/dialogs/settings_dialog.dart';
 import '../widgets/stats/score_stats_tab.dart';
@@ -214,6 +216,26 @@ class _ScoreInputScreenState extends ConsumerState<ScoreInputScreen> {
     context.go('/');
   }
 
+  void _showBoxScore() {
+    final session = _session;
+    final report = buildBoxScoreReport(
+      teamNameTop: session.teamNameTop,
+      teamNameBottom: session.teamNameBottom,
+      totalInningsConfig: session.totalInningsConfig,
+      playersTop: session.playersTop,
+      playersBottom: session.playersBottom,
+      scoresTop: session.scoresTop,
+      scoresBottom: session.scoresBottom,
+      totalScoreTop: session.totalScoreTop,
+      totalScoreBottom: session.totalScoreBottom,
+      totalHitsTop: session.totalHitsTop,
+      totalHitsBottom: session.totalHitsBottom,
+      errorsTop: session.errorsTop,
+      errorsBottom: session.errorsBottom,
+    );
+    showBoxScoreDialog(context, report: report);
+  }
+
   @override
   Widget build(BuildContext context) {
     // 進行状態が変わるたびにこの画面を再描画するための購読。
@@ -259,6 +281,11 @@ class _ScoreInputScreenState extends ConsumerState<ScoreInputScreen> {
             icon: const Icon(Icons.redo),
             tooltip: '1手進める',
             onPressed: session.canEdit && session.canRedo ? _redo : null,
+          ),
+          IconButton(
+            icon: const Icon(Icons.summarize),
+            tooltip: 'ボックススコア・エクスポート',
+            onPressed: _showBoxScore,
           ),
           IconButton(
             icon: const Icon(Icons.share),
