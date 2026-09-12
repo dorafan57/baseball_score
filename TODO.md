@@ -1,58 +1,74 @@
 # 残作業
 
-フェーズ1（ロジック抽出＋テスト）と、優先度の高いバグ3件の修正は完了済み。
+フェーズ1（ロジック抽出＋テスト）、優先度の高いバグ3件の修正、
+フェーズ2（Riverpod化）は完了済み。
 以下は未着手。上から順に着手するのが手戻りが少ない。
 
 ## A. 集計ロジックの残バグ（`lib/logic/` と `lib/models/` で完結する）
-
-### A-1. 投手の対戦打者数に走塁イベントが混入する
-`lib/models/player_stats.dart` の `pitching` ゲッターが `pitchingEvents` を
-無条件に数えているため、盗塁・WP・PB・走塁死のたびに対戦打者数が増える。
-該当箇所に `NOTE:` コメントあり。打席イベントだけを数えるようにする。
-`test/logic/game_replay_test.dart` にテストを追加すること。
-
-### A-2. アウト数の逆算がもろい
-`lib/logic/game_replay.dart` の `_estimateAddedOuts()` は、走者数の増減から
-アウト数を推定している。走者の行き先を正しく渡さないとアウト数がずれる。
-本来は `GameEvent` に明示的な `outsAdded` を持たせるべき。
-※ 変更すると既存イベントの互換性に影響するため、永続化（フェーズ3）より前にやること。
 
 ### A-3. 防御率のイニング数が画面設定と連動していない
 `PitcherStats.era({regulationInnings})` は引数化済みだが、UI（`main.dart` の
 投手成績テーブル）が既定値7のまま呼んでいる。`totalInningsConfig` を渡す。
 表示中の「※7回制防御率換算」も連動させる。
 
-## B. フェーズ2: Riverpod 化
+## C. フェーズ3: 永続化（shared_preferences）— 完了
 
-1. `main()` を `ProviderScope` で包む
-2. `lib/providers/game_provider.dart` に `GameNotifier extends Notifier<GameState>` を作る
-   - `_gameEvents` / `_nextEventId` / 打順・イニングなどの進行状態をここへ移す
-   - `main.dart` の `_ScoreInputScreenState` に残っているイベント記録メソッド
-     （`_commitAtBat` `_recordBaserunningEvent` `_deleteEvent` `_undo` など）を移設
-3. UI を `ConsumerWidget` / `ConsumerStatefulWidget` に置き換える
+- `GameEvent` / `BaseRunners` / `Player` に `toJson` / `fromJson` を実装済み
+  （成績・スコアは保存せず `replayGame()` で再現する方針を踏襲）
+- `lib/models/saved_game.dart`: 試合1件分のスナップショット（イベント列＋名簿＋
+  チーム名＋進行状況）を表す `SavedGame` を追加
+- `lib/services/game_storage_service.dart`: `SavedGame` の一覧を
+  shared_preferences へ JSON でまとめて保存・読込・削除する `GameStorageService`
+- `GameNotifier` に `startNewGame` / `loadGame` / `toSavedGame` を追加
+- `GameListScreen` で保存済み試合の一覧表示・読込・長押し削除を実装
+  （スコアは一覧表示のたびに `SavedGame.replay()` で再計算）
+- `test/models/saved_game_test.dart` に JSON 変換の往復テストを追加
 
-## C. フェーズ3: 永続化（shared_preferences）
+## D. フェーズ4: UI 分割とレスポンシブ — 完了
 
-- `GameEvent` / `BaseRunners` に `toJson` / `fromJson` を実装する
-- 試合ごとにイベント列＋名簿＋チーム名を保存する
-- `GameListScreen` の「過去試合の読み込み」を実装する
-  （現在は SnackBar で「次回以降の実装で対応します」と表示するだけ）
-- イベント列さえ復元できれば `replayGame()` で全成績が再現される
-
-## D. フェーズ4: UI 分割とレスポンシブ
-
-- `main.dart`（約4,700行）を `lib/screens/` と `lib/widgets/` に分割する
-- 走者の進塁先を選ぶダイアログが5箇所でほぼ同型 → 共通コンポーネント化する
-  （`_promptHitWithRunnersDialog` `_promptWalkOrErrorRunnersDialog`
-    `_handleGroundOut` `_promptSacrificeHit` `_promptSacrificeFly`）
-- `ConstrainedBox(maxWidth: 480)` でデスクトップ表示を制限する（CLAUDE.md の規約）
-- ダークテーマ対応
+- `lib/main.dart`（約4,450行）を分割し、`main()` と `app.dart` の再公開だけに縮小
+  - `lib/app.dart`: `BaseballScoreApp`（テーマ・レスポンシブ枠）
+  - `lib/screens/game_list_screen.dart` / `lib/screens/score_input_screen.dart`
+  - `lib/widgets/board/`: `board_header.dart`（`BoardTeam` / `OutLamp`）、
+    `diamond_field.dart`（`PosTag` / `BaseNode`）、
+    `action_buttons.dart`（`CategoryHeader` / `ActionButton` /
+    `CategorizedActionButtons`）、`input_tab.dart`（`InputTab`）
+  - `lib/widgets/stats/`: `stat_widgets.dart`（`StatsHeaderCell` /
+    `StatsDataCell` / `StatItem`）、`score_stats_tab.dart`（`ScoreStatsTab`）
+  - `lib/widgets/dialogs/`: 1ダイアログ1ファイル（18ファイル）。
+    各ダイアログは State のメソッドではなく
+    `showXxxDialog(context, {session, notifier, ...})` というトップレベル関数
+- 走者の進塁先を選ぶダイアログの共通部分を
+  `lib/widgets/dialogs/runner_advance_section.dart` に切り出し
+  （`RunnerChoiceTile` と、走者のいる塁だけ選択肢を並べる `RunnerAdvanceSection`）。
+  6箇所（上記5ダイアログ＋暴投／捕逸）から利用する。
+  得点・打点・アウト数の計算式は挙動を変えないよう各ダイアログに残した
+- `ScoreInputScreen` の再描画粒度は分割前と同じ
+  （`build()` 先頭で `ref.watch(gameProvider)` を1回だけ。
+  各タブ・ダイアログへはそのスナップショットと `GameNotifier` を引数で渡す）
+- `MaterialApp.builder` で `Center(ConstrainedBox(maxWidth: 480))` を適用
+  （狭い幅ではみ出していた履歴ダイアログ／ゴロアウトダイアログ／犠飛ダイアログの
+  タイトル行は `Flexible` で折り返すよう修正）
+- `darkTheme`（`ColorScheme.fromSeed(..., brightness: dark)`）と
+  `themeMode: ThemeMode.system` を追加
 
 ## E. その他の小さな不具合
 
-- `_showSettingsDialog` の `TextEditingController` が dispose されていない
+- ~~`_editBatterInfoDialog` で選手情報を保存すると
+  `A TextEditingController was used after being disposed.` で落ちることがある~~
+  → `lib/widgets/dialogs/edit_batter_dialog.dart` でダイアログ自体を
+  StatefulWidget にし、`State.dispose()` でコントローラを破棄するよう修正（D で対応）
+- ~~`_showSettingsDialog` の `TextEditingController` が dispose されていない~~
+  → `lib/widgets/dialogs/settings_dialog.dart` で同様に修正（D で対応）
 - `_clickableOutLamp` は名前に反してタップできない（`onTap` なし）
+  → `OutLamp`（`lib/widgets/board/board_header.dart`）に `onTap` を配線済み。
+  ただしアウトカウントはイベントの再生結果から導出される値のため、
+  ランプのタップで増減させるには「アウトのみを記録するイベント種別」が必要。
+  仕様が決まるまで呼び出し側では `onTap` を渡していない（コードに TODO あり）
 - `_baseNode` の `onTap` が空実装
+  → `BaseNode`（`lib/widgets/board/diamond_field.dart`）で
+  `GestureDetector` に配線済み。塁タップ時の挙動（代走など）は未定のため
+  呼び出し側では渡していない（コードに TODO あり）
 - シェアテキスト（`_generateShareText`）が全角チーム名に `padRight` を使っており桁がずれる
 - 3アウト成立後に記録されたイベントが `_gameEvents` に残り続ける
   （集計対象外にはなっており、履歴ダイアログに「※3アウト後のため集計対象外」と表示される）

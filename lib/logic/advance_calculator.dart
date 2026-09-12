@@ -18,11 +18,15 @@ class AdvanceState {
   /// 生還した走者の選手IDの一覧。
   final List<String> scoredPlayerIds;
 
+  /// この打席で増えたアウト数。
+  final int outsAdded;
+
   const AdvanceState({
     required this.runners,
     required this.runs,
     required this.rbi,
     required this.scoredPlayerIds,
+    required this.outsAdded,
   });
 }
 
@@ -30,10 +34,10 @@ class AdvanceState {
 ///
 /// 「単打なら走者は1つずつ進む」といった定型の進塁だけを扱う。
 /// 追加進塁や走塁死をともなうケースは、UI 側のダイアログで走者ごとの
-/// 行き先を指定し、その結果を直接イベントに記録する。
+/// 行き先とアウト数を指定し、その結果を直接イベントに記録する。
 ///
-/// アウト数はここでは算出しない。アウトカウントは半イニングを通した
-/// 再生（`replayGame()`）で確定させる。
+/// ここで扱う標準進塁には走者アウトの選択肢がないため、アウト数は
+/// [AtBatResult.guaranteedOuts]（結果ごとに必ず発生するアウト数）と一致する。
 AdvanceState calculateDefaultAdvance({
   required AtBatResult result,
   required BaseRunners runners,
@@ -148,6 +152,7 @@ AdvanceState calculateDefaultAdvance({
     runners: next,
     runs: runs,
     rbi: rbi,
+    outsAdded: result.guaranteedOuts,
     scoredPlayerIds: scored,
   );
 }

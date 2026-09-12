@@ -5,6 +5,9 @@ import 'package:baseball_score/models/game_event.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// テスト用に打席イベントを1件作る。
+///
+/// [outsAdded] を省略した場合は、結果ごとの必須アウト数
+/// （[AtBatResult.guaranteedOuts]）をそのまま使う。
 GameEvent atBat({
   required int eventId,
   required int inning,
@@ -16,6 +19,7 @@ GameEvent atBat({
   int runs = 0,
   int rbi = 0,
   int earnedRuns = 0,
+  int? outsAdded,
   List<String>? scoredPlayerIds,
   String? errorPlayerId,
 }) => GameEvent(
@@ -30,6 +34,7 @@ GameEvent atBat({
   runs: runs,
   rbi: rbi,
   earnedRuns: earnedRuns,
+  outsAdded: outsAdded ?? result.guaranteedOuts,
   scoredPlayerIds: scoredPlayerIds,
   errorPlayerId: errorPlayerId,
 );
@@ -43,6 +48,7 @@ GameEvent baserunning({
   String? runnerId,
   bool isSteal = false,
   int runs = 0,
+  int outsAdded = 0,
   List<String>? scoredPlayerIds,
 }) => GameEvent(
   eventId: eventId,
@@ -55,6 +61,7 @@ GameEvent baserunning({
   isSteal: isSteal,
   isBaserunningEvent: true,
   runs: runs,
+  outsAdded: outsAdded,
   scoredPlayerIds: scoredPlayerIds,
 );
 
@@ -126,6 +133,33 @@ void main() {
             inning: 1,
             runnersAfter: BaseRunners.empty,
             runnerId: 'b1',
+            outsAdded: 1,
+          ),
+        ],
+      );
+
+      expect(state.events.last.addedOuts, 1);
+      expect(state.events.last.outsAfter, 1);
+    });
+
+    test('アウト数は走者数の増減からの逆算ではなく、明示的な指定値に従う', () {
+      // 1塁走者がフォースアウトになり、打者が1塁に生きる「進塁打」のケース。
+      // 走者の増減だけを見ると（1塁走者が消えて打者も塁に乗らないため）
+      // 2アウト分の変化に見えてしまうが、実際のアウトは1つだけ。
+      final state = replayGame(
+        events: [
+          atBat(
+            eventId: 1,
+            inning: 1,
+            result: AtBatResult.singleHit,
+            runnersAfter: const BaseRunners(runner1st: 'b1'),
+          ),
+          atBat(
+            eventId: 2,
+            inning: 1,
+            result: AtBatResult.groundAdvance,
+            runnersAfter: BaseRunners.empty,
+            outsAdded: 1,
           ),
         ],
       );
@@ -259,6 +293,30 @@ void main() {
       expect(pitching.earnedRuns, 1);
       // 7回制換算: 自責1 × 7 ÷ 1回 = 7.00
       expect(pitching.era(), '7.00');
+    });
+
+    test('盗塁など走塁イベントは対戦打者数に含めない', () {
+      final state = replayGame(
+        events: [
+          atBat(
+            eventId: 1,
+            inning: 1,
+            result: AtBatResult.walk,
+            runnersAfter: const BaseRunners(runner1st: 'b1'),
+          ),
+          baserunning(
+            eventId: 2,
+            inning: 1,
+            runnersAfter: const BaseRunners(runner2nd: 'b1'),
+            runnerId: 'b1',
+            isSteal: true,
+          ),
+          atBat(eventId: 3, inning: 1, result: AtBatResult.strikeout),
+        ],
+      );
+
+      final pitching = state.statsOf('p1').pitching;
+      expect(pitching.battersFaced, 2, reason: '走塁イベントは対戦打者数に数えない');
     });
   });
 

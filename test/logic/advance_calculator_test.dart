@@ -142,6 +142,7 @@ void main() {
 
       expect(advance.runners, const BaseRunners(runner3rd: 'r3'));
       expect(advance.runs, 0);
+      expect(advance.outsAdded, 2, reason: '併殺打は打者と1塁走者の2アウト');
     });
 
     test('凡退では走者は動かない', () {
@@ -159,6 +160,26 @@ void main() {
         );
         expect(advance.runners, runners, reason: '$result で走者が動いた');
         expect(advance.runs, 0);
+        expect(advance.outsAdded, 1, reason: '$result は打者の1アウト');
+      }
+    });
+
+    test('安打・四死球・敵失ではアウトは増えない', () {
+      for (final result in [
+        AtBatResult.singleHit,
+        AtBatResult.doubleHit,
+        AtBatResult.tripleHit,
+        AtBatResult.homeRun,
+        AtBatResult.walk,
+        AtBatResult.hitByPitch,
+        AtBatResult.error,
+      ]) {
+        final advance = calculateDefaultAdvance(
+          result: result,
+          runners: BaseRunners.empty,
+          batterId: batter,
+        );
+        expect(advance.outsAdded, 0, reason: '$result でアウトが増えた');
       }
     });
   });

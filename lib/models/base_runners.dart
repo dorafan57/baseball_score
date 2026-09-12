@@ -15,6 +15,18 @@ class BaseRunners {
   /// 走者なしの状態。
   static const BaseRunners empty = BaseRunners();
 
+  Map<String, dynamic> toJson() => {
+    'runner1st': runner1st,
+    'runner2nd': runner2nd,
+    'runner3rd': runner3rd,
+  };
+
+  factory BaseRunners.fromJson(Map<String, dynamic> json) => BaseRunners(
+    runner1st: json['runner1st'] as String?,
+    runner2nd: json['runner2nd'] as String?,
+    runner3rd: json['runner3rd'] as String?,
+  );
+
   bool get isEmpty =>
       runner1st == null && runner2nd == null && runner3rd == null;
 

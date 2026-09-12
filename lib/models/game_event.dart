@@ -70,12 +70,19 @@ class GameEvent {
   /// 盗塁成功かどうか。
   final bool isSteal;
 
+  /// このイベントで増えたアウト数。
+  ///
+  /// 走者の増減からの逆算ではなく、記録時点で確定している値を
+  /// そのまま持たせる（何塁で誰がアウトになったかは UI 側が把握しているため）。
+  final int outsAdded;
+
   GameEvent({
     required this.eventId,
     required this.inning,
     required this.isTop,
     required this.description,
     required this.runnersAfter,
+    required this.outsAdded,
     this.batterId,
     this.batterIndex = 0,
     this.pitcherId,
@@ -95,6 +102,58 @@ class GameEvent {
   /// スコアブックのマス目に表示する省略表記。
   ///
   /// 打球方向を持つ結果は「遊ゴ」「左安」のように方向を前置する。
+  Map<String, dynamic> toJson() => {
+    'eventId': eventId,
+    'inning': inning,
+    'isTop': isTop,
+    'description': description,
+    'batterId': batterId,
+    'batterIndex': batterIndex,
+    'cycleIndex': cycleIndex,
+    'pitcherId': pitcherId,
+    'result': result?.name,
+    'direction': direction,
+    'rbi': rbi,
+    'runs': runs,
+    'earnedRuns': earnedRuns,
+    'scoredPlayerIds': scoredPlayerIds,
+    'errorPlayerId': errorPlayerId,
+    'runnerId': runnerId,
+    'runnersAfter': runnersAfter.toJson(),
+    'isBaserunningEvent': isBaserunningEvent,
+    'isSteal': isSteal,
+    'outsAdded': outsAdded,
+  };
+
+  factory GameEvent.fromJson(Map<String, dynamic> json) => GameEvent(
+    eventId: json['eventId'] as int,
+    inning: json['inning'] as int,
+    isTop: json['isTop'] as bool,
+    description: json['description'] as String,
+    batterId: json['batterId'] as String?,
+    batterIndex: json['batterIndex'] as int? ?? 0,
+    cycleIndex: json['cycleIndex'] as int? ?? 0,
+    pitcherId: json['pitcherId'] as String?,
+    result: json['result'] != null
+        ? AtBatResult.values.byName(json['result'] as String)
+        : null,
+    direction: json['direction'] as String? ?? '',
+    rbi: json['rbi'] as int? ?? 0,
+    runs: json['runs'] as int? ?? 0,
+    earnedRuns: json['earnedRuns'] as int? ?? 0,
+    scoredPlayerIds: (json['scoredPlayerIds'] as List<dynamic>?)
+        ?.map((e) => e as String)
+        .toList(),
+    errorPlayerId: json['errorPlayerId'] as String?,
+    runnerId: json['runnerId'] as String?,
+    runnersAfter: BaseRunners.fromJson(
+      json['runnersAfter'] as Map<String, dynamic>,
+    ),
+    isBaserunningEvent: json['isBaserunningEvent'] as bool? ?? false,
+    isSteal: json['isSteal'] as bool? ?? false,
+    outsAdded: json['outsAdded'] as int? ?? 0,
+  );
+
   String get displayShortLabel {
     final r = result;
     if (r == null) {

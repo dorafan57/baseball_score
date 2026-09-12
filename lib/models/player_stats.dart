@@ -140,15 +140,13 @@ class PlayerStats {
     int earnedRuns = 0;
 
     for (final e in pitchingEvents) {
-      // NOTE: 既知の問題 — 盗塁やWPなどの走塁イベントも対戦打者数に加算されてしまう。
-      // 打席イベントだけを数えるよう別途修正が必要。
-      battersFaced++;
       if (e.addedOuts > 0) {
         outsRecorded += e.addedOuts;
       }
 
       final result = e.result;
       if (result != null) {
+        battersFaced++;
         if (result.isHit) {
           hitsAllowed++;
         }

@@ -67,7 +67,7 @@ GameState replayGame({
     final runnersBefore = simRunners;
     final outsBefore = simOuts;
 
-    simOuts += _estimateAddedOuts(event, runnersBefore);
+    simOuts += event.outsAdded;
     simRunners = event.runnersAfter;
 
     final current = ResolvedEvent(
@@ -148,23 +148,4 @@ List<GameEvent> _ordered(List<GameEvent> events) {
     return a.eventId.compareTo(b.eventId);
   });
   return ordered;
-}
-
-/// このイベントで増えたアウト数を求める。
-///
-/// 「イベント前に塁上にいた人数（＋打者）」から「イベント後に塁上に残った人数
-/// ＋生還した人数」を差し引いた残りがアウトになった人数、という考え方で逆算する。
-/// そのうえで、三振やゴロのように必ずアウトが発生する結果については
-/// [AtBatResult.guaranteedOuts] を下限として補正する。
-int _estimateAddedOuts(GameEvent event, BaseRunners runnersBefore) {
-  final before = runnersBefore.count + (event.isBaserunningEvent ? 0 : 1);
-  final after = event.runnersAfter.count + event.runs;
-
-  var added = before - after;
-  if (added < 0) {
-    added = 0;
-  }
-
-  final minimum = event.result?.guaranteedOuts ?? 0;
-  return added < minimum ? minimum : added;
 }

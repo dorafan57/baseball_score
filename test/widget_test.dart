@@ -1,5 +1,6 @@
 import 'package:baseball_score/main.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 履歴ダイアログに並んでいるイベント件数。
@@ -35,7 +36,9 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const BaseballScoreApp());
+    await tester.pumpWidget(
+      const ProviderScope(child: BaseballScoreApp()),
+    );
     expect(find.text('草野球スコア - 試合一覧'), findsOneWidget);
 
     await tester.tap(find.text('新規試合'));
@@ -50,7 +53,9 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const BaseballScoreApp());
+    await tester.pumpWidget(
+      const ProviderScope(child: BaseballScoreApp()),
+    );
     await tester.tap(find.text('新規試合'));
     await tester.pumpAndSettle();
 
@@ -69,7 +74,9 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const BaseballScoreApp());
+    await tester.pumpWidget(
+      const ProviderScope(child: BaseballScoreApp()),
+    );
     await tester.tap(find.text('新規試合'));
     await tester.pumpAndSettle();
 
